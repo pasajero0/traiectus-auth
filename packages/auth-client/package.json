@@ -1,0 +1,19 @@
+{
+  "name": "@traiectus/auth-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": "./src/server/index.ts",
+    "./resource": "./src/resource/index.ts",
+    "./react": "./src/react/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@traiectus/contracts": "workspace:*"
+  }
+}
