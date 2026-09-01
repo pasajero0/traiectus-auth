@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 
-import type { Env } from './env'
-import { projectsRoutes } from './routes/projects'
+import type { Env } from './env.js'
+import { projectsRoutes } from './routes/projects.js'
 
 /**
  * Builds the app without listening, so tests can drive it through `app.request()`.

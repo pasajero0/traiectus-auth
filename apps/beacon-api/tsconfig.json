@@ -6,5 +6,5 @@
     // type packages out of the program.
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "*.config.ts"]
+  "include": ["src/**/*.ts", "api/**/*.ts", "*.config.ts"]
 }

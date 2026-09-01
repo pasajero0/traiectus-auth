@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 
-import type { Env } from '../env'
+import type { Env } from '../env.js'
 
 /**
  * The door. Parse, authenticate, delegate, serialise — and nothing else.

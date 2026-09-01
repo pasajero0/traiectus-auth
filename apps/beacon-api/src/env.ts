@@ -14,7 +14,12 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = envSchema.safeParse(source)
+  // A variable that exists but is blank means absent, not empty. Deployment
+  // platforms produce exactly that when a name is imported from .env.example
+  // without a value, and it defeats both halves of the schema: z.coerce.number()
+  // turns '' into 0, and .default() only fires on undefined.
+  const present = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== ''))
+  const result = envSchema.safeParse(present)
 
   if (!result.success) {
     const details = result.error.issues
