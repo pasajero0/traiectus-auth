@@ -27,7 +27,7 @@ sso-web  ← browsers                    sso-api  ← machines
 sign-in and registration pages         users, argon2id, credentials
 POST /login  (own route handler)       SSO session rows
 GET  /authorize                        authorization codes
-GET  /logout                           POST /v1/token, refresh rotation
+POST /logout                           POST /v1/token, refresh rotation
 owns cookie traiectus_sso              reuse detection
                                        the database
 ```

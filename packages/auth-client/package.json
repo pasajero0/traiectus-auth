@@ -14,6 +14,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@traiectus/contracts": "workspace:*"
+    "@traiectus/contracts": "workspace:*",
+    "jose": "6.2.10",
+    "zod": "4.5.4"
   }
 }

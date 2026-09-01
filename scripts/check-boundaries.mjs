@@ -10,7 +10,7 @@
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -31,33 +31,58 @@ const isSso = (app) => app === 'sso-web' || app === 'sso-api'
 const isWeb = (app) => app?.endsWith('-web') ?? false
 const isApi = (app) => app?.endsWith('-api') ?? false
 
-const refersTo = (spec, app) =>
+const CLIENT_APPS = ['harbor-web', 'harbor-api', 'beacon-web', 'beacon-api']
+const ALL_APPS = ['sso-web', 'sso-api', ...CLIENT_APPS]
+
+/**
+ * A relative specifier resolved to a repo-relative posix path; null for a bare one.
+ *
+ * Matching the specifier as written is not enough. Every application lives in one
+ * checkout, so a sibling is reachable as '../../../sso-api/src/env' — a path that
+ * names no `apps/` segment and so matches none of the patterns below while pointing
+ * straight through the boundary. Resolving it first is what makes these rules about
+ * the file being imported rather than about how it happened to be spelled.
+ */
+const resolveSpec = (file, spec) =>
+  spec.startsWith('.') ? posix(relative(ROOT, resolve(dirname(join(ROOT, file)), spec))) : null
+
+const refersTo = (spec, resolved, app) =>
   spec === `@traiectus/${app}` ||
   spec.startsWith(`@traiectus/${app}/`) ||
-  new RegExp(`(^|/)apps/${app}(/|$)`).test(spec)
+  new RegExp(`(^|/)apps/${app}(/|$)`).test(spec) ||
+  (resolved !== null && new RegExp(`^apps/${app}(/|$)`).test(resolved))
 
 const IMPORT_RULES = [
   {
     id: 'boundary/identity-service-is-reached-over-http',
     applies: (file) => !isSso(appOf(file)),
-    forbids: (spec) => refersTo(spec, 'sso-api') || refersTo(spec, 'sso-web'),
+    forbids: (spec, resolved) =>
+      refersTo(spec, resolved, 'sso-api') || refersTo(spec, resolved, 'sso-web'),
     message:
       'Applications reach the identity service over HTTP through @traiectus/auth-client, exactly as a third party would. Importing its code would erase the boundary the project exists to demonstrate.',
   },
   {
     id: 'boundary/identity-service-knows-no-clients',
     applies: (file) => isSso(appOf(file)),
-    forbids: (spec) =>
-      ['harbor-web', 'harbor-api', 'beacon-web', 'beacon-api'].some((app) => refersTo(spec, app)),
+    forbids: (spec, resolved) => CLIENT_APPS.some((app) => refersTo(spec, resolved, app)),
     message:
       'The identity service knows nothing about who consumes it. Clients are configured data, never imports.',
   },
   {
     id: 'boundary/web-and-api-are-separate-services',
     applies: (file) => isWeb(appOf(file)) || isApi(appOf(file)),
-    forbids: (spec) => {
-      const target = /@traiectus\/([a-z]+-(?:web|api))/.exec(spec)?.[1] ?? null
-      return target !== null && /(-web|-api)$/.test(target)
+    // Any application other than the one doing the importing, minus whatever the two
+    // rules above already report — a client hears about sso-* from the first, an sso
+    // file hears about clients from the second — so nothing is listed twice. What is
+    // left is precisely an application reaching for its own counterpart, and that
+    // includes sso-web into sso-api, which ADR-0004 splits for the same reason.
+    forbids: (spec, resolved, file) => {
+      const self = appOf(file)
+      const reportedElsewhere = isSso(self) ? CLIENT_APPS : ['sso-web', 'sso-api']
+      return ALL_APPS.some(
+        (app) =>
+          app !== self && !reportedElsewhere.includes(app) && refersTo(spec, resolved, app),
+      )
     },
     message:
       'A web application and its API are separate deployments. They share types through @traiectus/contracts and speak HTTP — never a direct import.',
@@ -72,25 +97,36 @@ const IMPORT_RULES = [
   {
     id: 'boundary/api-services-render-nothing',
     applies: (file) => isApi(appOf(file)),
-    forbids: (spec) => spec === '@traiectus/ui' || spec.startsWith('@traiectus/ui/'),
+    forbids: (spec, resolved) =>
+      spec === '@traiectus/ui' ||
+      spec.startsWith('@traiectus/ui/') ||
+      (resolved !== null && /^packages\/ui(\/|$)/.test(resolved)),
     message: 'A resource server returns JSON. It has no user interface to share.',
   },
 ]
 
+/**
+ * Everything that ships. Both security rules apply to all of it, with no per-application
+ * carve-out: a client's web server seals its own session cookie and checks its own Origin,
+ * so it needs real randomness exactly as much as the identity service does. ADR-0008.
+ */
+const isShippedCode = (file) =>
+  file.startsWith(`apps${sep}`) || file.startsWith(`packages${sep}`)
+
 const CONTENT_RULES = [
   {
     id: 'security/no-web-storage',
-    applies: (file) => file.startsWith(`apps${sep}`) || file.startsWith(`packages${sep}`),
-    pattern: /\b(?:localStorage|sessionStorage|indexedDB)\b/,
+    applies: isShippedCode,
+    pattern: /\b(?:localStorage|sessionStorage|indexedDB)\b/g,
     message:
       'Web storage is not used at all — not for tokens, not for anything else. No token reaches the browser: both live in an AEAD-sealed HttpOnly cookie held by the client web server. The rule is blanket on purpose, so that it needs no judgement from someone in a hurry. See docs/decisions/0008-no-token-reaches-the-browser.md.',
   },
   {
     id: 'security/no-weak-randomness',
-    applies: (file) => isSso(appOf(file)) || file.startsWith(join('packages', 'auth-client')),
-    pattern: /\bMath\s*\.\s*random\s*\(/,
+    applies: isShippedCode,
+    pattern: /\bMath\s*\.\s*random\s*\(/g,
     message:
-      'Session ids, authorization codes and state parameters come from node:crypto, never Math.random().',
+      'Session ids, authorization codes, state parameters and anything else that must be unguessable come from node:crypto, never Math.random().',
   },
 ]
 
@@ -131,16 +167,19 @@ for (const absolute of walk(ROOT)) {
     let match
     while ((match = SPECIFIER_RE.exec(text)) !== null) {
       const spec = match[1] ?? match[2] ?? match[3] ?? match[4]
-      if (spec && rule.forbids(spec)) {
+      if (spec && rule.forbids(spec, resolveSpec(file, spec), file)) {
         violations.push({ file, line: lineOf(text, match.index), rule, detail: `imports '${spec}'` })
       }
     }
   }
 
+  // Every occurrence, not the first: a file that reaches for web storage twice is
+  // two things to fix, and reporting one of them invites a second run to find the rest.
   for (const rule of CONTENT_RULES) {
     if (!rule.applies(file)) continue
-    const match = rule.pattern.exec(text)
-    if (match) {
+    rule.pattern.lastIndex = 0
+    let match
+    while ((match = rule.pattern.exec(text)) !== null) {
       violations.push({ file, line: lineOf(text, match.index), rule, detail: match[0].trim() })
     }
   }

@@ -1,4 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Declared rather than discovered: automatic @types lookup does not reach
+    // into a pnpm workspace package, and an explicit list also keeps unrelated
+    // type packages out of the program.
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts", "*.config.ts"]
 }
