@@ -12,3 +12,8 @@ next-env.d.ts
 
 .DS_Store
 *.log
+
+# Harness. .claude/ is committed on purpose — it is part of what this project
+# demonstrates — but local overrides and scratch state are not.
+.claude/settings.local.json
+.claude/tmp/

@@ -1,0 +1,17 @@
+{
+  "templateVersion": "0.1.0",
+  "params": {
+    "packageManager": "pnpm",
+    "forbiddenPms": "npm|yarn|bun",
+    "lockfile": "pnpm-lock.yaml",
+    "generatedGlobs": "*/dist/*|dist/*|*/build/*",
+    "docsDir": "docs/",
+    "mainBranch": "main",
+    "forgeCli": "gh",
+    "commands": [
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build"
+    ]
+  }
+}
