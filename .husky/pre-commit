@@ -1,0 +1,1 @@
+pnpm guards && pnpm typecheck
