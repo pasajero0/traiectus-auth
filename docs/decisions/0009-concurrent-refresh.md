@@ -52,8 +52,10 @@ and the event is logged as an attack.
 Returning the *same* successor is what keeps detection honest. Both callers converge on one
 token, so the family still has exactly one live holder at the next rotation. To serve the
 replay, the successor's plaintext is held on the predecessor's row, encrypted with a key
-that lives in `sso-api`'s environment and not in the database, and wiped when the window
-closes. Everything else stored about a token is a SHA-256 hash: a refresh token is 256 bits
+that lives in `sso-api`'s environment and not in the database. It stops being usable the
+moment the window closes, because the window is checked before the column is read; the column
+itself is cleared by the family's next rotation, or by the sweeper of
+[ADR-0015](0015-expired-rows-have-an-owner.md) for a family that has none. Everything else stored about a token is a SHA-256 hash: a refresh token is 256 bits
 straight from `node:crypto`, so a fast hash is the correct one — there is nothing a slow
 hash could add that the entropy has not already provided. (Passwords are argon2id and always
 will be; the difference is that a password is not random.)
@@ -76,10 +78,17 @@ next rotation, and the family is revoked then — detection delayed by one rotat
   tokens.
 - Every rotation rewrites the client's sealed session cookie (ADR-0008), including rotations
   that occur during an ordinary data request.
-- **A live refresh token is briefly recoverable from `sso-api`'s database** — for ten
-  seconds, on one row, and only by someone who also holds the environment key. That is the
-  price of a reuse rule that does not fire on the user's own browser, and it is stated here
-  rather than left to be discovered.
+- **A live refresh token is recoverable from `sso-api`'s database** by someone who also holds
+  the environment key. It is *claimable* for ten seconds — after that the row is read but the
+  window is not open, so nothing hands it out — while the encrypted column may sit until the
+  family rotates again or the sweeper clears it. That is the price of a reuse rule that does
+  not fire on the user's own browser, and it is stated here rather than left to be
+  discovered.
+- Whoever holds that environment key holds `INTERNAL_API_KEY` and the access-token signing
+  key beside it, and can therefore open a session as anybody and sign a token for anybody.
+  The recoverable column adds nothing to an attacker who already has all of that, which is
+  why the lingering ciphertext is answered by a sweeper rather than by an index and a
+  scheduled erasure pass.
 - The window is a configured constant, not a literal buried in the rotation code. Ten
   seconds is long enough for a serverless cold start and far too short for anything at human
   scale.

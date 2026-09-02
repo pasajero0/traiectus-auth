@@ -30,6 +30,12 @@ request but not awaited by it, so nothing on the hot path pays for maintenance.
 **Every table with a lifetime is created with an index on the column the sweeper filters**,
 in the same migration that creates the table.
 
+**The same pass clears a closed replay window** — `successor_ciphertext` where `replay_until`
+has passed (ADR-0009 ③). It runs without an index on `replay_until`: an hourly sequential
+scan of a small table, off the hot path, is cheaper than an index maintained on every write
+for a query nothing else makes. That trade is worth revisiting when the table is large enough
+for it to be measured rather than guessed.
+
 ## Consequences
 
 - The service sleeps on the free tier, so sweeping happens when there is traffic — which is
