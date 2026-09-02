@@ -1,6 +1,6 @@
 # ADR-0001: Three sessions, three owners
 
-**Status:** proposed — to be accepted on day 2, before the schema is written
+**Status:** accepted
 **Date:** 2026-08-28
 **Amended by:** [ADR-0008](0008-no-token-reaches-the-browser.md) — ③, no token reaches the
 browser; [ADR-0009](0009-concurrent-refresh.md) — how rotation behaves under concurrency.
@@ -58,9 +58,11 @@ presentation is an attack, not a retry, and is logged as one.
 exchange, receives an access/refresh pair, and seals **both** into **its own**
 `HttpOnly; Secure; SameSite=Lax` cookie on its own host. Neither token reaches browser
 JavaScript, web storage, or a URL — see [ADR-0008](0008-no-token-reaches-the-browser.md).
-Refresh tokens rotate on every use;
-presenting a rotated-away token revokes the entire family, on the reasoning that the only
-way to hold a used refresh token is to have taken it.
+Refresh tokens rotate on every use; presenting a rotated-away token revokes the entire
+family, on the reasoning that the only way to hold a used refresh token is to have taken
+it — outside the ten-second same-client replay window that keeps a browser's own
+concurrent refreshes from revoking themselves, see
+[ADR-0009](0009-concurrent-refresh.md).
 
 **Access tokens are self-contained and actually travel.** `sso-api` signs them with EdDSA.
 `<client>-web`'s server attaches one to every call against `<client>-api`, which verifies
