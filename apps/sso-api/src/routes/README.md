@@ -21,3 +21,24 @@ Two audiences, kept apart on purpose (ADR-0004).
 | `POST /v1/authorization-codes` | issue a single-use code for a client | 5 |
 
 Nothing here renders HTML. The browser never reaches this service.
+
+## Response codes
+
+Only the routes that exist. The rest get their codes when they are written, not before.
+
+### POST /v1/users
+
+Internal. Registers an account.
+
+- **201 Created** — account created; body carries `{ id }`
+- **400 Bad Request** — malformed body, or a password shorter than twelve characters
+- **401 Unauthorized** — internal key missing or wrong
+- **409 Conflict** — the address is already registered
+
+### POST /v1/credentials/verify
+
+Internal. Checks an email and password against the store.
+
+- **200 OK** — the check ran; body says whether it passed
+- **400 Bad Request** — malformed body
+- **401 Unauthorized** — internal key missing or wrong
