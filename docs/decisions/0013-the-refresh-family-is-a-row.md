@@ -42,6 +42,15 @@ COMMIT
 orders is a deadlock, and the second order is always introduced by someone who did not know
 there was a first.
 
+The lock is insurance rather than the mechanism, and saying so is the honest version. What
+closes the revocation race is the *table*: every rotation reads the family, so a successor
+issued a microsecond after a revoke is refused the moment it is presented. The lock buys
+something narrower — a caller who loses waits for the winner instead of depending on
+`READ COMMITTED` handing each statement a fresh snapshot. One of those is visible in the
+code; the other is a footnote about isolation levels that the next reader has to already
+know. The database tests pass with the lock removed, which is exactly why this paragraph
+exists rather than a claim that it is load-bearing.
+
 **The family carries `expires_at`, thirty days from its creation, and rotation refuses past
 it.** Rotation issues a successor with a fresh fourteen-day life, so without a cap on the
 family a session that is merely *used* never ends: fourteen days are measured from the last
@@ -73,7 +82,9 @@ project targets and says so.
 **`revoked_at` on each token.** One table, and the rotation predicate stays on a single
 row. Rejected for the race above: it is not a performance argument but a correctness one.
 
-**A families table without the row lock**, revocation checked by a subquery inside the
-rotation. Cheaper, and nearly chosen. Rejected because a rotation whose statement began
-before the revoke committed can still consume a token in a family that is by then revoked.
+**A families table without the row lock**, revocation checked inside the rotation. Cheaper,
+and it is *correct* — a rotation that slips past a concurrent revoke produces a successor
+that the next rotation refuses anyway, which the tests confirm. Kept the lock regardless,
+for the reason above: the cost is one row-level lock per rotation within a single family,
+and the return is that the concurrency argument can be read off the code.
 The lock is what makes the two operations agree on an order.

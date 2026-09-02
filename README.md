@@ -103,6 +103,20 @@ Everything CI checks, in one command:
 pnpm verify   # guards, lint, types, tests
 ```
 
+Rotation and reuse detection are claims about what happens when two callers race for one
+row, so their tests need a real Postgres and live behind a second command. Give them a
+database of their own — they migrate it and truncate it:
+
+```bash
+docker exec traiectus-pg psql -U traiectus -d postgres -c 'create database traiectus_test'
+
+TEST_DATABASE_URL=postgres://traiectus:traiectus@localhost:5432/traiectus_test \
+  pnpm --filter @traiectus/sso-api test:db
+```
+
+With `TEST_DATABASE_URL` unset they fail rather than skip: a suite that quietly runs nothing
+is worse than one that does not run.
+
 ## Scope
 
 This is a reference implementation demonstrating the model — not a production-ready

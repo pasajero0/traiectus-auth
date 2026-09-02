@@ -108,5 +108,8 @@ to someone else's product, rename it.
   application's state document. ADR-0012.
 - A discriminated union's discriminant is a technical marker, not prose: one name
   everywhere. Every `/verify` route answers `verified`.
+- Tests that need Postgres are `*.db.test.ts`, run by `pnpm --filter @traiectus/sso-api
+  test:db` with `TEST_DATABASE_URL`. `pnpm verify` deliberately does not run them, so a green
+  verify is not a green suite; CI runs both.
 - Every non-obvious decision gets an ADR before the code it justifies.
 - Commit daily. History should show a project being kept, not one dumped in a night.

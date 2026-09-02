@@ -23,7 +23,7 @@ see [ADR-0002](docs/decisions/0002-monorepo-layout.md) for why it is one reposit
 | App | Serves | Local port |
 | --- | --- | --- |
 | `sso-web` | `src/app/` — pages plus `/authorize`, `/logout` | 4100 |
-| `sso-api` | `src/index.ts` → `src/server.ts` → `src/routes/`, each mounted through `src/routing.ts`. Data in `src/db/`, logic in `src/domain/` | 4000 |
+| `sso-api` | `src/index.ts` → `src/server.ts` → `src/routes/`, each mounted through `src/routing.ts`. Data in `src/db/`, logic in `src/domain/`, the setup for `*.db.test.ts` in `src/test/` | 4000 |
 | `*-web` | `src/app/` (routes) · `src/server/` (server-only logic) | 3000, 3001 |
 | `*-api` | `api/index.ts` on Vercel, `src/index.ts` locally → `src/app.ts` → `src/routes/` → `src/domain/` | 3100, 3101 |
 
