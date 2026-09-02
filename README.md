@@ -108,7 +108,9 @@ pnpm verify   # guards, lint, types, tests
 This is a reference implementation demonstrating the model — not a production-ready
 identity provider. Full OIDC is out of scope; see Roadmap.
 
-**Roadmap:** OIDC discovery and JWKS, signing-key rotation, PKCE and public clients,
-two-factor authentication, social login, password reset, email verification, roles and
+**Roadmap:** OIDC discovery and JWKS, signing-key rotation, public clients,
+two-factor authentication, social login — at the identity service, so the products keep
+exactly one issuer ([ADR-0017](docs/decisions/0017-the-authorization-response-names-its-issuer.md)) —
+password reset, email verification, roles and
 permissions, a shared design layer in `packages/ui` (Tailwind and shadcn/ui, copied in
 rather than depended on), and a React Native client on the same identity service.

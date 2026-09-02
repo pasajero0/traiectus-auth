@@ -42,6 +42,10 @@ code — never weaken the guard.
   `principalRouter`, `clientRouter`, `internalRouter` — never a bare framework instance. The
   principal comes only from a signature the service verified itself. ADR-0007.
 - `Math.random()` never produces anything unguessable.
+- Every bearer string carries its type prefix — `trs_`, `trr_`, `trc_` — checked before any
+  lookup, so one kind of token cannot be presented where another is expected. ADR-0014.
+- A table with a lifetime is created with a sweeper index in the same migration, and
+  something deletes from it. ADR-0015.
 
 Each client owns its own session cookie. The identity service issues authorization codes
 and tokens; it never sets a cookie on a client's domain, because it cannot.
@@ -54,7 +58,7 @@ work like this never ships, so scope is defended rather than negotiated:
 **Any "while we're here, let's also…" becomes a line in the README Roadmap, not a line of code.**
 
 Out of scope, deliberately, and documented as such: full OIDC (discovery, JWKS, key
-rotation, consent), PKCE and public clients, social login, password reset, email
+rotation, consent), public clients, social login, password reset, email
 verification, roles and permissions, 2FA, multi-tenancy, client branding.
 
 **Point of no return: 3 September 2026.** If cross-application sign-in does not work by
@@ -69,6 +73,7 @@ Say so plainly rather than implying otherwise.
 A public auth project with a hole is worse than no project. Non-negotiable:
 
 - `redirect_uri` validated against a configured allowlist. Exact match, no prefix matching.
+- PKCE on every authorization request, `S256` only, no downgrade to `plain`. ADR-0016.
 - Passwords hashed with argon2id. Never a fast hash.
 - Anything unguessable comes from `node:crypto`.
 - Authorization codes are single-use and short-lived.

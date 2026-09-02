@@ -2,6 +2,10 @@
 
 **Status:** accepted
 **Date:** 2026-08-31
+**Amended by:** [ADR-0013](0013-the-refresh-family-is-a-row.md) — the family is its own
+table, and rotation takes its row first; [ADR-0014](0014-a-token-says-what-kind-it-is.md) —
+a refresh token carries a `trr_` prefix; [ADR-0015](0015-expired-rows-have-an-owner.md) —
+who deletes a consumed token, and when.
 
 ## Context
 

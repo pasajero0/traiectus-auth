@@ -3,7 +3,10 @@
 **Status:** accepted
 **Date:** 2026-08-28
 **Amended by:** [ADR-0008](0008-no-token-reaches-the-browser.md) — ③, no token reaches the
-browser; [ADR-0009](0009-concurrent-refresh.md) — how rotation behaves under concurrency.
+browser; [ADR-0009](0009-concurrent-refresh.md) — how rotation behaves under concurrency;
+[ADR-0014](0014-a-token-says-what-kind-it-is.md) — every identifier here carries a type
+prefix; [ADR-0015](0015-expired-rows-have-an-owner.md) — what deletes a session once it has
+expired.
 
 ## Context
 
