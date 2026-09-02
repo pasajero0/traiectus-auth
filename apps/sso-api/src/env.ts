@@ -9,6 +9,11 @@ const envSchema = z.object({
   HOST: z.string().min(1).default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().max(65535).default(4000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  /**
+   * The shared secret sso-web presents on internal routes. Required: a service that
+   * cannot tell its own caller apart from anyone else should not start.
+   */
+  INTERNAL_API_KEY: z.string().min(1),
   /** Set by Render on deploy; absent locally. */
   RENDER_GIT_COMMIT: z.string().optional(),
 })
