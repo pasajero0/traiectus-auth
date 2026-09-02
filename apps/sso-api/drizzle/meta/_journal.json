@@ -8,6 +8,13 @@
       "when": 1788351473586,
       "tag": "0000_create_users",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788361214916,
+      "tag": "0001_create_sso_sessions",
+      "breakpoints": true
     }
   ]
 }

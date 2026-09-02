@@ -57,3 +57,31 @@ export const verifyCredentialsResponseSchema = z.discriminatedUnion('verified', 
 ])
 
 export type VerifyCredentialsResponse = z.infer<typeof verifyCredentialsResponseSchema>
+
+/** Opening an SSO session — ADR-0001 ①. sso-web keeps the token; sso-api keeps the row. */
+export const createSessionRequestSchema = z.object({ userId: z.string().uuid() })
+
+export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>
+
+export const createSessionResponseSchema = z.object({
+  token: z.string().min(1),
+  expiresAt: z.string().datetime(),
+})
+
+export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>
+
+/** Verifying and revoking take the same body, so they take the same schema. */
+export const sessionTokenRequestSchema = z.object({ token: z.string().min(1).max(256) })
+
+export type SessionTokenRequest = z.infer<typeof sessionTokenRequestSchema>
+
+export const verifySessionResponseSchema = z.discriminatedUnion('verified', [
+  z.object({
+    verified: z.literal(true),
+    userId: z.string().uuid(),
+    expiresAt: z.string().datetime(),
+  }),
+  z.object({ verified: z.literal(false) }),
+])
+
+export type VerifySessionResponse = z.infer<typeof verifySessionResponseSchema>

@@ -101,5 +101,7 @@ to someone else's product, rename it.
   the code, a second derivation of a decision an ADR already holds, and alternatives that
   were never in this file. Longer than that, and it belongs in an ADR or in the
   application's state document. ADR-0012.
+- A discriminated union's discriminant is a technical marker, not prose: one name
+  everywhere. Every `/verify` route answers `verified`.
 - Every non-obvious decision gets an ADR before the code it justifies.
 - Commit daily. History should show a project being kept, not one dumped in a night.

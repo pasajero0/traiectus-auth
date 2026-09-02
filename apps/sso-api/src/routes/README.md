@@ -46,3 +46,28 @@ Internal. Checks an email and password against the store.
 - **200 OK** — the check ran; body says whether it passed
 - **400 Bad Request** — malformed body
 - **401 Unauthorized** — internal key missing or wrong
+
+### POST /v1/sessions
+
+Internal. Opens an SSO session for a user.
+
+- **201 Created** — session opened; body carries `{ token, expiresAt }`
+- **400 Bad Request** — malformed body
+- **401 Unauthorized** — internal key missing or wrong
+
+### POST /v1/sessions/verify
+
+Internal. Checks a session token and slides its idle window.
+
+- **200 OK** — the check ran; body says whether it passed
+- **400 Bad Request** — malformed body
+- **401 Unauthorized** — internal key missing or wrong
+
+### DELETE /v1/sessions
+
+Internal. Revokes a session. Idempotent — an unknown, expired or already revoked token is
+answered the same as a live one.
+
+- **204 No Content** — nothing more to say
+- **400 Bad Request** — malformed body
+- **401 Unauthorized** — internal key missing or wrong
