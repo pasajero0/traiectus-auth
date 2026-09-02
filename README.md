@@ -97,4 +97,5 @@ identity provider. Full OIDC is out of scope; see Roadmap.
 
 **Roadmap:** OIDC discovery and JWKS, signing-key rotation, PKCE and public clients,
 two-factor authentication, social login, password reset, email verification, roles and
-permissions, and a React Native client on the same identity service.
+permissions, a shared design layer in `packages/ui` (Tailwind and shadcn/ui, copied in
+rather than depended on), and a React Native client on the same identity service.
