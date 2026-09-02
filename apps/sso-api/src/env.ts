@@ -14,6 +14,8 @@ const envSchema = z.object({
    * cannot tell its own caller apart from anyone else should not start.
    */
   INTERNAL_API_KEY: z.string().min(1),
+  /** Required: this service is the database, and has nothing to serve without it. */
+  DATABASE_URL: z.string().url(),
   /** Set by Render on deploy; absent locally. */
   RENDER_GIT_COMMIT: z.string().optional(),
 })

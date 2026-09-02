@@ -4,8 +4,14 @@ import { loadEnv } from './env'
 import { buildServer } from './server'
 import { declaredRoutes, registeredRoutes, resetRouteTable } from './routing'
 
+/** Enough environment to build the server. No database is opened here. */
 const env = () =>
-  loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'fatal', INTERNAL_API_KEY: 'test-key' } as NodeJS.ProcessEnv)
+  loadEnv({
+    NODE_ENV: 'test',
+    LOG_LEVEL: 'fatal',
+    INTERNAL_API_KEY: 'test-key',
+    DATABASE_URL: 'postgres://test:test@localhost:5432/test',
+  } as NodeJS.ProcessEnv)
 
 /**
  * The guard ADR-0007 asks for: it walks the assembled application rather than the

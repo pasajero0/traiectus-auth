@@ -12,6 +12,10 @@ services:
     region: frankfurt
     healthCheckPath: /health
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @traiectus/sso-api build
+    # Migrations run once per deploy, not on every restart — which is what putting
+    # them in startCommand would mean, and not during build, where a successful
+    # migration could outlive a deploy that then fails.
+    preDeployCommand: pnpm --filter @traiectus/sso-api db:migrate
     startCommand: node apps/sso-api/dist/index.js
     envVars:
       - key: NODE_VERSION
