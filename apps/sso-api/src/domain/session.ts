@@ -2,6 +2,7 @@ import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 
 import type { Database } from '../db/client'
 import { ssoSessions } from '../db/schema'
+import { SSO_SESSION_HARD, SSO_SESSION_IDLE } from './lifetimes'
 import { hashToken, isTokenOfKind, mintToken } from './token'
 
 /**
@@ -9,8 +10,6 @@ import { hashToken, isTokenOfKind, mintToken } from './token'
  * answered to sso-web as an `expiresAt`, never configured on its side, so the two
  * cannot come to disagree.
  */
-const HARD_LIFETIME_DAYS = 7
-const IDLE_LIFETIME_HOURS = 24
 
 /**
  * Every timestamp is the database's, not this process's. Two clocks deciding one window
@@ -27,7 +26,7 @@ export async function openSession(
     .values({
       tokenHash: hashToken(token),
       userId,
-      expiresAt: sql`now() + make_interval(days => ${HARD_LIFETIME_DAYS})`,
+      expiresAt: sql`now() + ${SSO_SESSION_HARD}`,
     })
     .returning({ expiresAt: ssoSessions.expiresAt })
 
@@ -55,7 +54,7 @@ export async function verifySession(
         eq(ssoSessions.tokenHash, hashToken(token)),
         isNull(ssoSessions.revokedAt),
         gt(ssoSessions.expiresAt, sql`now()`),
-        gt(ssoSessions.lastUsedAt, sql`now() - make_interval(hours => ${IDLE_LIFETIME_HOURS})`),
+        gt(ssoSessions.lastUsedAt, sql`now() - ${SSO_SESSION_IDLE}`),
       ),
     )
     .returning({ userId: ssoSessions.userId, expiresAt: ssoSessions.expiresAt })
