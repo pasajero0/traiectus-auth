@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto'
+
 import argon2 from 'argon2'
 
 /**
@@ -27,4 +29,15 @@ export function hashPassword(password: string): Promise<string> {
 
 export function verifyPassword(hash: string, password: string): Promise<boolean> {
   return argon2.verify(hash, password)
+}
+
+/**
+ * A hash to verify against when there is no such user, so an unknown address costs the
+ * same as a wrong password. Derived from random bytes at first use: a hash written into
+ * the source is a committed credential, and nobody's password.
+ */
+let phantom: Promise<string> | null = null
+
+export function phantomHash(): Promise<string> {
+  return (phantom ??= hashPassword(randomBytes(32).toString('base64')))
 }

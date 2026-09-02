@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 
 import type { Database } from './db/client'
 import type { Env } from './env'
+import { credentialRoutes } from './routes/credentials'
 import { healthRoutes } from './routes/health'
 import { userRoutes } from './routes/users'
 import { recordRoutes } from './routing'
@@ -28,6 +29,7 @@ export async function buildServer(env: Env, db: Database): Promise<FastifyInstan
 
   await app.register(healthRoutes(env))
   await app.register(userRoutes(env, db))
+  await app.register(credentialRoutes(env, db))
 
   return app
 }
