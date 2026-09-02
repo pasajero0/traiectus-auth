@@ -50,8 +50,72 @@ export const ssoSessions = pgTable(
     /** Revocation keeps the row. */
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
-  // For revoking every session a user holds — 07/09.
-  (table) => [index('sso_sessions_user_id_idx').on(table.userId)],
+  (table) => [
+    // Revoking every session a user holds.
+    index('sso_sessions_user_id_idx').on(table.userId),
+    // What the sweeper filters on — ADR-0015.
+    index('sso_sessions_expires_at_idx').on(table.expiresAt),
+  ],
 )
 
 export type SsoSession = typeof ssoSessions.$inferSelect
+
+/**
+ * A refresh family — one sign-in at one client, surviving every rotation. Revocation lives
+ * here rather than on each token, because on the tokens it races an in-flight rotation and
+ * can leave a revoked family holding one live successor. ADR-0013.
+ */
+export const refreshFamilies = pgTable(
+  'refresh_families',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    clientId: text('client_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Thirty days from the sign-in, never extended by a rotation. ADR-0013. */
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    /** Why, in one word — `reuse`, `logout`, `credentials`. Read by humans after the fact. */
+    revokedReason: text('revoked_reason'),
+  },
+  (table) => [
+    index('refresh_families_user_id_idx').on(table.userId),
+    index('refresh_families_expires_at_idx').on(table.expiresAt),
+  ],
+)
+
+/**
+ * One generation of a family. `id` is minted by the caller rather than by the database, so
+ * the successor can be named in the statement that consumes its predecessor — ADR-0009 ①.
+ */
+export const refreshTokens = pgTable(
+  'refresh_tokens',
+  {
+    id: uuid('id').primaryKey(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => refreshFamilies.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    /**
+     * No foreign key: the successor is named while it is still being created, and a
+     * constraint would have to be deferred to allow the very statement it exists to guard.
+     */
+    successorId: uuid('successor_id'),
+    /** The successor's plaintext, AES-256-GCM under a key from the environment. ADR-0009 ②. */
+    successorCiphertext: text('successor_ciphertext'),
+    /** When the replay window closes and the ciphertext above is wiped. */
+    replayUntil: timestamp('replay_until', { withTimezone: true }),
+  },
+  (table) => [
+    index('refresh_tokens_family_id_idx').on(table.familyId),
+    index('refresh_tokens_expires_at_idx').on(table.expiresAt),
+  ],
+)
+
+export type RefreshFamily = typeof refreshFamilies.$inferSelect
+export type RefreshToken = typeof refreshTokens.$inferSelect

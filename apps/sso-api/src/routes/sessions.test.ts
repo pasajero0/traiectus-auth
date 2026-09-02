@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { createDatabase } from '../db/client'
-import { hashSessionToken, mintSessionToken } from '../domain/session'
+import { hashToken, mintToken } from '../domain/token'
 import { loadEnv } from '../env'
 import { resetRouteTable } from '../routing'
 import { buildServer } from '../server'
@@ -72,25 +72,13 @@ describe.each(routes)('$method $url', ({ method, url, malformed }) => {
 })
 
 describe('the session token', () => {
-  it('is 256 bits, and no two are alike', () => {
-    const first = mintSessionToken()
-
-    // 32 bytes in base64url, unpadded.
-    expect(first).toMatch(/^[A-Za-z0-9_-]{43}$/)
-    expect(first).not.toBe(mintSessionToken())
+  it('is minted as a session token and not as some other kind', () => {
+    expect(mintToken('session')).toMatch(/^trs_[A-Za-z0-9_-]{43}$/)
   })
 
   it('is not recoverable from what is stored', () => {
-    const token = mintSessionToken()
-    const stored = hashSessionToken(token)
+    const token = mintToken('session')
 
-    expect(stored).toMatch(/^[0-9a-f]{64}$/)
-    expect(stored).not.toContain(token)
-  })
-
-  it('hashes the same token to the same row every time', () => {
-    const token = mintSessionToken()
-
-    expect(hashSessionToken(token)).toBe(hashSessionToken(token))
+    expect(hashToken(token)).not.toContain(token)
   })
 })

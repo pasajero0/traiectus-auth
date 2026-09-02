@@ -15,6 +15,13 @@
       "when": 1788361214916,
       "tag": "0001_create_sso_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788370715738,
+      "tag": "0002_create_refresh_tokens",
+      "breakpoints": true
     }
   ]
 }

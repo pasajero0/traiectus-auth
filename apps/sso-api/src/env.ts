@@ -16,6 +16,16 @@ const envSchema = z.object({
   INTERNAL_API_KEY: z.string().min(1),
   /** Required: this service is the database, and has nothing to serve without it. */
   DATABASE_URL: z.string().url(),
+  /**
+   * AES-256-GCM, and the only thing that makes a successor recoverable for the ten seconds
+   * a losing concurrent refresh may still claim it — ADR-0009 ③. Optional until
+   * POST /v1/token exists, since nothing in production rotates without it; a wrong length
+   * still fails at boot rather than at the first rotation.
+   */
+  REFRESH_SUCCESSOR_ENCRYPTION_KEY: z
+    .string()
+    .refine((value) => Buffer.from(value, 'base64').length === 32, '32 bytes, base64')
+    .optional(),
   /** Set by Render on deploy; absent locally. */
   RENDER_GIT_COMMIT: z.string().optional(),
 })
