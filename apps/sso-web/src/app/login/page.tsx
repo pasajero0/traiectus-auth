@@ -2,9 +2,9 @@
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; next?: string }>
 }) {
-  const { error } = await searchParams
+  const { error, next } = await searchParams
 
   return (
     <main>
@@ -30,6 +30,8 @@ export default async function LoginPage({
           autoComplete="current-password"
           required
         />
+
+        {next ? <input type="hidden" name="next" value={next} /> : null}
 
         <button type="submit">Sign in</button>
       </form>

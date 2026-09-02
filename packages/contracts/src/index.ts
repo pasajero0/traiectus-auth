@@ -85,3 +85,16 @@ export const verifySessionResponseSchema = z.discriminatedUnion('verified', [
 ])
 
 export type VerifySessionResponse = z.infer<typeof verifySessionResponseSchema>
+
+/**
+ * The shape of an authorization request — ADR-0001 ②. Shape only: the allowlist that
+ * decides whether a redirect_uri is one of ours arrives with the codes, 04/09.
+ */
+export const authorizeRequestSchema = z.object({
+  client_id: z.string().min(1).max(64),
+  redirect_uri: z.string().url().max(2048),
+  response_type: z.literal('code'),
+  state: z.string().min(1).max(512).optional(),
+})
+
+export type AuthorizeRequest = z.infer<typeof authorizeRequestSchema>

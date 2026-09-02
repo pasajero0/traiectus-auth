@@ -1,16 +1,49 @@
+import { authorizeRequestSchema } from '@traiectus/contracts'
+import { NextResponse } from 'next/server'
+
+import { env } from '@/server/env'
+import { readSessionCookie } from '@/server/session'
+import { verifySession } from '@/server/sso-api'
+
 /**
- * GET /authorize — the entry point every client redirects a browser to.
+ * The entry point every client redirects a browser to — ADR-0001 ②. A valid SSO session is
+ * what makes the second application's sign-in invisible; issuing the code arrives 04/09.
  *
- * Reads the SSO session cookie. If it is valid, asks sso-api for a single-use
- * authorization code and redirects straight back to the client's redirect_uri:
- * that silent pass is what makes the second application's sign-in invisible.
- * If it is not, sends the browser to /login and resumes afterwards.
- *
- * Top-level GET navigation only — a SameSite=Lax cookie is withheld from a
- * cross-site POST, so the flow cannot be anything else. See ADR-0001.
- *
- * Day 5.
+ * A top-level GET that checks no Origin: browsers send none on a navigation, and arriving
+ * from another site is the point rather than the attack.
  */
-export async function GET(): Promise<Response> {
-  return new Response('not implemented', { status: 501 })
+export async function GET(request: Request): Promise<Response> {
+  const origin = new URL(env().SSO_WEB_URL).origin
+  const requested = new URL(request.url)
+
+  const parsed = authorizeRequestSchema.safeParse(Object.fromEntries(requested.searchParams))
+  if (!parsed.success) return new NextResponse('invalid_request', { status: 400 })
+
+  const session = await currentSession()
+
+  if (!session) {
+    const login = new URL('/login', origin)
+    login.searchParams.set('next', `${requested.pathname}${requested.search}`)
+    return NextResponse.redirect(login, 302)
+  }
+
+  return new NextResponse('Signed in. Issuing the authorization code arrives 04/09.\n', {
+    status: 200,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  })
+}
+
+// An unreachable sso-api is not a session. The browser is sent to sign in, where it will
+// meet the same failure with a message rather than a redirect loop.
+async function currentSession(): Promise<{ userId: string } | null> {
+  try {
+    const token = await readSessionCookie()
+    if (!token) return null
+
+    const result = await verifySession(token)
+    return result.verified ? { userId: result.userId } : null
+  } catch (error) {
+    console.error('could not check the SSO session', error)
+    return null
+  }
 }
