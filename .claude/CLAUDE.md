@@ -96,5 +96,10 @@ to someone else's product, rename it.
   the free tier has no pre-deploy step, so the schema changes while the previous version
   is still serving. Additive changes ship alone; a removal is two deploys: stop using the
   column, then drop it.
+- A comment earns its place by stopping a specific wrong edit — one or two lines, naming
+  the ADR rather than restating its argument. Three kinds do not earn it: a retelling of
+  the code, a second derivation of a decision an ADR already holds, and alternatives that
+  were never in this file. Longer than that, and it belongs in an ADR or in the
+  application's state document. ADR-0012.
 - Every non-obvious decision gets an ADR before the code it justifies.
 - Commit daily. History should show a project being kept, not one dumped in a night.
