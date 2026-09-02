@@ -9,8 +9,8 @@ Built and maintained through an agentic harness.
 
 ---
 
-> **Work in progress.** Skeleton stage; the identity service does nothing yet but
-> report that it is alive. Target: 10 September 2026.
+> **Work in progress.** The identity service stores users and accepts registration;
+> signing in is next. Target: 10 September 2026.
 
 ## How it fits together
 
@@ -51,7 +51,7 @@ Beacon lands you inside without a form — that is the fact this repository exis
 | `apps/beacon-web` · `apps/beacon-api` | Client product #2 — proof that one session spans both. |
 | `packages/contracts` | Schemas shared by every side. |
 | `packages/auth-client` | SDK — `/server`, `/resource`, `/react`. |
-| `packages/ui` | Shared components, sign-in pages included. |
+| `packages/ui` | Shared components for every web app, sign-in pages included. Empty until [ADR-0011](docs/decisions/0011-design-layer-copied-in.md) lands. |
 | `docs/decisions` | Architecture decision records. |
 | `.claude` | Harness configuration. Public on purpose. |
 
@@ -70,8 +70,21 @@ reaches browser JavaScript.
 
 ## Running locally
 
+The identity service needs Postgres. A throwaway one, matching the `DATABASE_URL`
+in `apps/sso-api/.env.example`:
+
+```bash
+docker run -d --name traiectus-pg \
+  -e POSTGRES_USER=traiectus -e POSTGRES_PASSWORD=traiectus -e POSTGRES_DB=traiectus \
+  -p 5432:5432 postgres:16
+```
+
+Then copy each `.env.example` to `.env` (services) or `.env.local` (Next.js apps),
+fill in what it asks for, and:
+
 ```bash
 pnpm install
+pnpm --filter @traiectus/sso-api db:migrate
 pnpm dev
 ```
 
@@ -84,10 +97,10 @@ pnpm dev
 | beacon-web | http://localhost:3001 |
 | beacon-api | http://localhost:3101 |
 
-Copy each `.env.example` to `.env` (services) or `.env.local` (Next.js apps) first.
+Everything CI checks, in one command:
 
 ```bash
-pnpm verify   # guards, lint, types, tests — the same sequence CI runs
+pnpm verify   # guards, lint, types, tests
 ```
 
 ## Scope
