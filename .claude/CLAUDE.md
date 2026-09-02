@@ -91,6 +91,10 @@ to someone else's product, rename it.
 - TypeScript everywhere, `strict`. No `any`; if a type is genuinely unknown, model it.
 - Validate input with zod at the edge, derive types from the schema.
 - Product API paths are versioned (`/v1/…`) from the first commit.
-- `apps/sso-api` uses Drizzle; migrations are checked-in SQL and applied on deploy.
+- `apps/sso-api` uses Drizzle; migrations are checked-in SQL, applied at the end of the
+  Render build. **Every migration must be compatible with the release already running** —
+  the free tier has no pre-deploy step, so the schema changes while the previous version
+  is still serving. Additive changes ship alone; a removal is two deploys: stop using the
+  column, then drop it.
 - Every non-obvious decision gets an ADR before the code it justifies.
 - Commit daily. History should show a project being kept, not one dumped in a night.
