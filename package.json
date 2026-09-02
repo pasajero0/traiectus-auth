@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "lint": "turbo lint",
+    "lint": "turbo lint && pnpm lint:root",
+    "lint:root": "eslint scripts eslint.config.js commitlint.config.ts",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "guards": "node scripts/check-boundaries.mjs",

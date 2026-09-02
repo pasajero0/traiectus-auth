@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist', '.turbo', '.git', 'coverage'])
 const SOURCE_EXT = /\.(?:m|c)?[jt]sx?$/
+const ENV_EXAMPLE = '.env.example'
 
 /** Matches `from '…'`, `import('…')`, `import '…'`, `require('…')`. */
 const SPECIFIER_RE =
@@ -111,7 +112,12 @@ const IMPORT_RULES = [
  * so it needs real randomness exactly as much as the identity service does. ADR-0008.
  */
 const isShippedCode = (file) =>
-  file.startsWith(`apps${sep}`) || file.startsWith(`packages${sep}`)
+  (file.startsWith(`apps${sep}`) || file.startsWith(`packages${sep}`)) && SOURCE_EXT.test(file)
+
+const isEnvExample = (file) => file.endsWith(ENV_EXAMPLE)
+
+/** Anywhere a credential could be pasted: shipped source, and the env examples. */
+const isCommittedText = (file) => isShippedCode(file) || isEnvExample(file)
 
 const CONTENT_RULES = [
   {
@@ -122,11 +128,57 @@ const CONTENT_RULES = [
       'Web storage is not used at all — not for tokens, not for anything else. No token reaches the browser: both live in an AEAD-sealed HttpOnly cookie held by the client web server. The rule is blanket on purpose, so that it needs no judgement from someone in a hurry. See docs/decisions/0008-no-token-reaches-the-browser.md.',
   },
   {
+    id: 'security/no-embedded-credential',
+    applies: isCommittedText,
+    pattern:
+      /-----BEGIN [A-Z ]*PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|gh[osu]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|"d"\s*:\s*"[A-Za-z0-9_-]{20,}"/g,
+    message:
+      'This looks like a real credential. Nothing secret is committed — keys live in the deployment platform, and locally in a .env that git ignores.',
+  },
+  {
     id: 'security/no-weak-randomness',
     applies: isShippedCode,
     pattern: /\bMath\s*\.\s*random\s*\(/g,
     message:
       'Session ids, authorization codes, state parameters and anything else that must be unguessable come from node:crypto, never Math.random().',
+  },
+]
+
+/**
+ * An example file documents which variables exist. Its values are placeholders by
+ * definition, so the rule is stated that way round — a secret-shaped name must carry a
+ * placeholder — rather than as a guess at what a real secret looks like. Deciding
+ * "does this look secret enough" is exactly the judgement nobody makes correctly in a
+ * hurry.
+ */
+const SECRET_NAME = /(?:^|_)(KEYS?|SECRETS?|TOKENS?|PASSWORDS?|PASS|CREDENTIALS?)(?:$|_)/
+const PLACEHOLDERS = new Set(['', 'replace-me', 'change-me', 'changeme', 'todo'])
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', 'postgres', 'db'])
+
+const LINE_RULES = [
+  {
+    id: 'security/no-value-behind-a-secret-name',
+    applies: isEnvExample,
+    check(line) {
+      const match = /^([A-Z][A-Z0-9_]*)=(.*)$/.exec(line)
+      if (!match) return null
+      const [, name, value] = match
+      if (!SECRET_NAME.test(name) || PLACEHOLDERS.has(value.trim())) return null
+      return `${name}=${value.trim().slice(0, 12)}…`
+    },
+    message:
+      'A variable whose name says secret must carry a placeholder here, not a value. Put the real one in the deployment platform, or in a .env that git ignores.',
+  },
+  {
+    id: 'security/no-remote-database-url',
+    applies: isEnvExample,
+    check(line) {
+      const match = /postgres(?:ql)?:\/\/[^@\s]*@([^:/\s]+)/.exec(line)
+      if (!match || LOCAL_HOSTS.has(match[1])) return null
+      return match[0]
+    },
+    message:
+      'An example points at a local database. A host that is not local carries credentials for something real.',
   },
 ]
 
@@ -145,7 +197,7 @@ function* walk(dir) {
     if (SKIP_DIRS.has(entry)) continue
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) yield* walk(full)
-    else if (SOURCE_EXT.test(entry)) yield full
+    else if (SOURCE_EXT.test(entry) || entry === ENV_EXAMPLE) yield full
   }
 }
 
@@ -182,6 +234,14 @@ for (const absolute of walk(ROOT)) {
     while ((match = rule.pattern.exec(text)) !== null) {
       violations.push({ file, line: lineOf(text, match.index), rule, detail: match[0].trim() })
     }
+  }
+
+  for (const rule of LINE_RULES) {
+    if (!rule.applies(file)) continue
+    text.split('\n').forEach((line, index) => {
+      const detail = rule.check(line)
+      if (detail) violations.push({ file, line: index + 1, rule, detail })
+    })
   }
 
   for (const rule of REQUIRED_RULES) {

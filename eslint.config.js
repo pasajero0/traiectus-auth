@@ -77,7 +77,17 @@ export default tseslint.config(
     },
   },
   {
+    // Tooling that runs on Node directly rather than through a bundler. Listed by hand
+    // instead of pulling in `globals` for four names.
     files: ['**/*.config.{js,ts,mjs}', 'scripts/**'],
+    languageOptions: {
+      globals: {
+        Buffer: 'readonly',
+        URL: 'readonly',
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
     rules: { 'no-console': 'off' },
   },
 )
