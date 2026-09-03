@@ -2,13 +2,11 @@ import { randomUUID } from 'node:crypto'
 
 import { and, eq, gt, isNotNull, isNull, lt, sql } from 'drizzle-orm'
 
-import type { Database } from '../db/client'
+import type { Database, Tx } from '../db/client'
 import { refreshFamilies, refreshTokens } from '../db/schema'
 import { REFRESH_FAMILY, REFRESH_TOKEN, REPLAY_WINDOW } from './lifetimes'
 import { openSuccessor, sealSuccessor } from './successor-cipher'
 import { hashToken, isTokenOfKind, mintToken } from './token'
-
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0]
 
 export type RotationOutcome =
   | { outcome: 'rotated'; token: string; expiresAt: Date; userId: string }
@@ -212,6 +210,18 @@ export async function revokeFamily(
   reason: string,
 ): Promise<void> {
   await revokeFamilyWithin(db, familyId, reason)
+}
+
+/** Single logout. `refresh_families_user_id_idx` makes this a lookup, not a scan. */
+export async function revokeFamiliesForUser(
+  db: Tx | Database,
+  userId: string,
+  reason: string,
+): Promise<void> {
+  await db
+    .update(refreshFamilies)
+    .set({ revokedAt: sql`now()`, revokedReason: reason })
+    .where(and(eq(refreshFamilies.userId, userId), isNull(refreshFamilies.revokedAt)))
 }
 
 async function revokeFamilyWithin(tx: Tx | Database, familyId: string, reason: string) {

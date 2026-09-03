@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { refreshFamilies, users } from '../db/schema'
 import { testDatabase, truncateAll } from '../test/database'
-import { openFamily, revokeFamily, rotateRefreshToken } from './refresh'
+import { openFamily, revokeFamiliesForUser, revokeFamily, rotateRefreshToken } from './refresh'
 
 /**
  * The claim this project is built to demonstrate, tested where it can actually fail. A race
@@ -203,6 +203,51 @@ describe('what is refused rather than treated as theft', () => {
     ['nonsense', 'not-a-token'],
   ])('refuses %s', async (_label, token) => {
     expect((await rotate(token)).outcome).toBe('refused')
+  })
+})
+
+/** Single logout: every family a user holds, regardless of which client opened it. */
+describe('revoking every family a user holds', () => {
+  const signInAs = async (userId: string, clientId: string) => openFamily(db, { userId, clientId })
+
+  it('revokes every family for that user and leaves another user untouched', async () => {
+    const [user] = await db
+      .insert(users)
+      .values({ email: `t-${randomBytes(6).toString('hex')}@example.com`, passwordHash: 'x' })
+      .returning({ id: users.id })
+    const harbor = await signInAs(user!.id, 'harbor')
+    const beacon = await signInAs(user!.id, 'beacon')
+    const other = await signIn()
+
+    await revokeFamiliesForUser(db, user!.id, 'logout')
+
+    const rows = await db
+      .select({ id: refreshFamilies.id, revokedAt: refreshFamilies.revokedAt, revokedReason: refreshFamilies.revokedReason })
+      .from(refreshFamilies)
+
+    const revokedAt = (id: string) => rows.find((row) => row.id === id)?.revokedAt
+
+    expect(revokedAt(harbor.familyId)).not.toBeNull()
+    expect(revokedAt(beacon.familyId)).not.toBeNull()
+    expect(rows.find((row) => row.id === harbor.familyId)?.revokedReason).toBe('logout')
+    expect(revokedAt(other.familyId)).toBeNull()
+  })
+
+  it('leaves an already-revoked family with its original reason', async () => {
+    const [user] = await db
+      .insert(users)
+      .values({ email: `t-${randomBytes(6).toString('hex')}@example.com`, passwordHash: 'x' })
+      .returning({ id: users.id })
+    const family = await signInAs(user!.id, 'harbor')
+    await revokeFamily(db, family.familyId, 'reuse')
+
+    await revokeFamiliesForUser(db, user!.id, 'logout')
+
+    const [row] = await db
+      .select({ revokedReason: refreshFamilies.revokedReason })
+      .from(refreshFamilies)
+      .where(eq(refreshFamilies.id, family.familyId))
+    expect(row!.revokedReason).toBe('reuse')
   })
 })
 

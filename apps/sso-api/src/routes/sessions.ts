@@ -1,6 +1,7 @@
 import { createSessionRequestSchema, sessionTokenRequestSchema } from '@traiectus/contracts'
 
 import type { Database } from '../db/client'
+import { revokeFamiliesForUser } from '../domain/refresh'
 import { openSession, revokeSession, verifySession } from '../domain/session'
 import type { Env } from '../env'
 import { internalRouter } from '../routing'
@@ -48,12 +49,19 @@ export function sessionRoutes(env: Env, db: Database) {
     })
     // Idempotent: an unknown token, an expired one and an already revoked one are all
     // answered the same, because none of the differences is anyone's business.
+    //
+    // Single logout: revoking the SSO session cascades into every refresh family the user
+    // holds, across every product, in the same transaction — a failure partway through must
+    // not leave the session gone but a family still live.
     .delete('/v1/sessions', async (request, reply) => {
       const parsed = sessionTokenRequestSchema.safeParse(request.body)
       if (!parsed.success) return reply.code(400).send(invalidRequest)
 
       try {
-        await revokeSession(db, parsed.data.token)
+        await db.transaction(async (tx) => {
+          const revoked = await revokeSession(tx, parsed.data.token)
+          if (revoked) await revokeFamiliesForUser(tx, revoked.userId, 'logout')
+        })
         return reply.code(204).send()
       } catch (error) {
         request.log.error({ err: error }, 'failed to revoke a session')

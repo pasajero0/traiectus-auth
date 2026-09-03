@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 
-import type { Database } from '../db/client'
+import type { Database, Tx } from '../db/client'
 import { ssoSessions } from '../db/schema'
 import { SSO_SESSION_HARD, SSO_SESSION_IDLE } from './lifetimes'
 import { hashToken, isTokenOfKind, mintToken } from './token'
@@ -66,12 +66,23 @@ export async function verifySession(
   return session ?? null
 }
 
-/** Revocation keeps the row, and an already revoked session keeps its original time. */
-export async function revokeSession(db: Database, token: string): Promise<void> {
-  if (!isTokenOfKind(token, 'session')) return
+/**
+ * Revocation keeps the row, and an already revoked session keeps its original time. Answers
+ * the session's `userId` when it actually revoked something, so a caller can cascade into
+ * single logout without a second lookup — and not when the token was already spent, so a
+ * retry after a partial failure cascades exactly once.
+ */
+export async function revokeSession(
+  db: Tx | Database,
+  token: string,
+): Promise<{ userId: string } | null> {
+  if (!isTokenOfKind(token, 'session')) return null
 
-  await db
+  const [session] = await db
     .update(ssoSessions)
     .set({ revokedAt: sql`now()` })
     .where(and(eq(ssoSessions.tokenHash, hashToken(token)), isNull(ssoSessions.revokedAt)))
+    .returning({ userId: ssoSessions.userId })
+
+  return session ?? null
 }

@@ -6,6 +6,9 @@ import * as schema from './schema'
 
 export type Database = ReturnType<typeof createDatabase>['db']
 
+/** Inside a `db.transaction` callback — accepted wherever a write must share a caller's lock. */
+export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0]
+
 /**
  * One pool for the process. Kept small on purpose: the free Postgres this runs
  * against has few connections to give, and a single Render instance serves every

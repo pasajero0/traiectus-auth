@@ -11,9 +11,9 @@ import { revokeSession } from '@/server/sso-api'
  * dashboard's own same-origin form. ADR-0020 — a product's own "Sign out" returns here
  * without ending the session; only this button does that.
  *
- * Every refresh family a product has already issued keeps rotating on its own terms until
- * single logout (07/09) revokes those too — this closes the SSO session, not every session
- * anywhere. Access tokens already issued are not recalled, per ADR-0001.
+ * Revoking the SSO session cascades server-side into every refresh family the user holds
+ * across every product — single logout. Access tokens already issued are not recalled, per
+ * ADR-0001.
  *
  * POST, and Origin-checked: SameSite=Lax sends this cookie on a cross-site GET, so a plain
  * GET here would be forgeable from any page carrying an `<img>` tag.
