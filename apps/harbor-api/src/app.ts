@@ -16,6 +16,7 @@ import { projectsRoutes } from './routes/projects.js'
 export function buildApp(env: Env): Hono {
   const app = new Hono()
 
+  // The one route open to the world — ADR-0007. Everything else is behind principalRouter.
   app.get('/health', (c) => c.json({ status: 'ok', service: 'harbor-api' }))
   app.route('/v1/projects', projectsRoutes(env))
 

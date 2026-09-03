@@ -125,6 +125,9 @@ importers:
       '@types/node':
         specifier: 26.4.0
         version: 26.4.0
+      jose:
+        specifier: 6.2.10
+        version: 6.2.10
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.26)(tsx@4.23.13)(typescript@7.0.2)

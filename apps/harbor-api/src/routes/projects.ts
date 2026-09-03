@@ -1,20 +1,18 @@
-import { Hono } from 'hono'
+import type { Hono } from 'hono'
 
 import type { Env } from '../env.js'
+import { listProjects } from '../domain/projects.js'
+import { principalRouter } from '../routing.js'
 
 /**
  * The door. Parse, authenticate, delegate, serialise — and nothing else.
  * Anything that grows here becomes invisible to callers arriving by another
  * door, which in v2 means the mobile client. See ADR-0005.
  */
-export function projectsRoutes(_env: Env): Hono {
-  const routes = new Hono()
+export function projectsRoutes(env: Env): Hono {
+  const routes = principalRouter(env)
 
-  routes.get('/', async (c) => {
-    // Day 6: requirePrincipal(c.req.raw) from @traiectus/auth-client/resource
-    // verifies the bearer token's signature locally against ACCESS_TOKEN_PUBLIC_KEY.
-    return c.json({ error: 'not_implemented' }, 501)
-  })
+  routes.get('/', (c) => c.json({ projects: listProjects(c.get('principal').userId) }))
 
   return routes
 }
