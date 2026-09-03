@@ -229,7 +229,22 @@ function checkEnvSchemasMatchExamples() {
     if (!envPath || !existsSync(join(ROOT, examplePath))) continue
 
     const schemaKeys = envSchemaKeys(readFileSync(join(ROOT, envPath), 'utf8'))
-    if (!schemaKeys) continue
+    if (!schemaKeys) {
+      // Not "nothing to check" — the parser didn't recognise this file's shape, which
+      // means the check below would silently stop covering it. That has to fail loudly:
+      // a guard that looks green because it quietly stopped looking is worse than none.
+      violations.push({
+        file: envPath,
+        line: 1,
+        rule: {
+          id: ENV_SCHEMA_ID,
+          message:
+            'checkEnvSchemasMatchExamples could not find a `z.object({ ... })` shaped the way it expects in this file, so it cannot verify this app\'s .env.example against its schema at all. Fix the extraction regex in scripts/check-boundaries.mjs, or restore the schema to the shape every other env.ts uses.',
+        },
+        detail: 'schema shape not recognised — env/example drift for this app is unchecked',
+      })
+      continue
+    }
     const exampleKeys = envExampleKeys(readFileSync(join(ROOT, examplePath), 'utf8'))
 
     for (const key of schemaKeys) {

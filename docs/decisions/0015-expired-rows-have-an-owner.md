@@ -43,8 +43,11 @@ for it to be measured rather than guessed.
 - No secret leaves the deployment: an external scheduler calling an internal route would
   need the internal key, and it would live in that scheduler's settings.
 - A sweep that fails is logged and retried an hour later. It holds no locks anyone waits on.
-- `sso_sessions` needs its `expires_at` index added by a follow-up migration, since it
-  shipped without one. Additive, so it is safe against the running release.
+- **The throttle is per process, not per deployment.** "At most once an hour" holds for as
+  long as one instance serves every request — true of the free tier this runs on today
+  (`db/client.ts`'s own reasoning: "a single Render instance serves every request"). Running
+  more than one would mean more than one gate, each unaware of the others', so the real
+  ceiling becomes once an hour per instance. Worth re-reading this line before that changes.
 - Deleting a token row cascades nothing: a family outlives its tokens and is swept on its
   own terms.
 

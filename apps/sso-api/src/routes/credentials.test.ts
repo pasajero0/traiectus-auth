@@ -110,6 +110,19 @@ describe('the rate limit on /v1/credentials/verify', () => {
     const other = await app.inject({ method: 'POST', url: '/v1/sessions/verify' })
     expect(other.statusCode).not.toBe(429)
   })
+
+  /** ADR-0021: a fixed key, not `request.ip` — two addresses must share one bucket. */
+  it('is one bucket for the whole service, not one per address', async () => {
+    const app = await assemble()
+    const hit = (remoteAddress: string) =>
+      app.inject({ method: 'POST', url: '/v1/credentials/verify', remoteAddress })
+
+    for (let i = 0; i < 5; i += 1) await hit('10.0.0.1')
+    for (let i = 0; i < 5; i += 1) await hit('10.0.0.2')
+
+    expect((await hit('10.0.0.1')).statusCode).toBe(429)
+    expect((await hit('10.0.0.3')).statusCode).toBe(429)
+  })
 })
 
 /** The difference from registration looks like an oversight, so it is pinned here. */

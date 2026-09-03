@@ -5,17 +5,12 @@ import { verifyCredentials } from '../domain/credentials'
 import type { Env } from '../env'
 import { internalRouter } from '../routing'
 
-/**
- * Equal-time failure (ADR unnamed — the property is in `domain/credentials.ts`) means an
- * unknown address costs the same argon2id hash as a real one, so this number bounds how
- * many hashes the instance pays for per minute, not how many guesses one account survives.
- * sso-web is the only caller and does not forward the browser's address, so every request
- * here shares one bucket by design: high enough for real concurrent sign-ins on a
- * single-digit-user demo, low enough that a sustained guesser pays for it in wall-clock
- * time, not just CPU. Meaningful per-account brute-force protection still needs the
- * client-IP-forwarding gap this bucket can't close on its own — see Known gaps.
- */
-const CREDENTIALS_VERIFY_RATE_LIMIT = { max: 10, timeWindow: '1 minute' }
+/** One bucket for the whole service, not one per `request.ip` — ADR-0021. */
+const CREDENTIALS_VERIFY_RATE_LIMIT = {
+  max: 10,
+  timeWindow: '1 minute',
+  keyGenerator: () => 'credentials-verify',
+}
 
 /**
  * Internal: only sso-web reaches this service, and the key authenticates the caller, not
