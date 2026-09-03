@@ -17,7 +17,7 @@ describe('the return target', () => {
     ['another site', 'https://not-beacon.example/inbox'],
     ['a protocol-relative host', '//not-beacon.example/inbox'],
     ['a host hidden behind a backslash', '/\\not-beacon.example'],
-  ])('falls back to /inbox for %s', (_label, value) => {
-    expect(returnTarget(value)).toBe('/inbox')
+  ])('falls back to / for %s', (_label, value) => {
+    expect(returnTarget(value)).toBe('/')
   })
 })

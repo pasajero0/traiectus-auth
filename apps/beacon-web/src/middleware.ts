@@ -5,14 +5,18 @@ import { authClientConfig } from '@/server/auth-client'
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/server/session'
 
 /**
- * The gate for /inbox, and the only place a rotated refresh token can be written back:
- * a Server Component cannot set a cookie mid-render, so refreshing has to happen before the
- * page runs — ADR-0009 ③, "refreshes early... before forwarding the request".
+ * The gate for the whole application — ADR-0019. A product has no page that renders
+ * without a session; the exclusion is an allowlist of infrastructure, not a list of
+ * protected routes, so a page added later is protected by default rather than by memory.
  *
+ * A rotated refresh token can only be written back here: a Server Component cannot set a
+ * cookie mid-render, so refreshing has to happen before the page runs — ADR-0009 ③.
  * The verified access token is passed to the page as a request header rather than re-read
  * from the cookie there, so the page never has to unseal the envelope a second time.
  */
-export const config = { matcher: ['/inbox/:path*'] }
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+}
 
 export async function middleware(request: NextRequest): Promise<Response> {
   const envelope = request.cookies.get(SESSION_COOKIE_NAME)?.value

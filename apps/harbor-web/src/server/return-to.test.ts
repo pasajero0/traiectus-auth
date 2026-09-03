@@ -17,7 +17,7 @@ describe('the return target', () => {
     ['another site', 'https://not-harbor.example/dashboard'],
     ['a protocol-relative host', '//not-harbor.example/dashboard'],
     ['a host hidden behind a backslash', '/\\not-harbor.example'],
-  ])('falls back to /dashboard for %s', (_label, value) => {
-    expect(returnTarget(value)).toBe('/dashboard')
+  ])('falls back to / for %s', (_label, value) => {
+    expect(returnTarget(value)).toBe('/')
   })
 })

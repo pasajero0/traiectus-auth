@@ -6,7 +6,7 @@ import 'server-only'
  * an open redirect is the cheapest hole in exactly this kind of fork.
  */
 export function returnTarget(value: string | null | undefined): string {
-  const fallback = '/inbox'
+  const fallback = '/'
   if (!value) return fallback
 
   if (!value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return fallback
