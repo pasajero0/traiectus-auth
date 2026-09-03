@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation'
+
 import { readSessionCookie } from '@/server/session'
 import { listClients, verifySession } from '@/server/sso-api'
 
@@ -6,17 +8,10 @@ export default async function Home() {
   const token = await readSessionCookie()
   const session = token ? await verifySession(token) : { verified: false as const }
 
+  // Nothing for an anonymous visitor to do here but sign in — so this is /login, not a
+  // page whose one link is /login.
   if (!session.verified) {
-    return (
-      <main>
-        <p className="eyebrow">traiectus &middot; identity</p>
-        <h1>The crossing</h1>
-        <p className="lede">Where an anonymous request becomes an identified session.</p>
-        <p className="status">
-          <a href="/login">Sign in</a>
-        </p>
-      </main>
-    )
+    redirect('/login')
   }
 
   const { clients } = await listClients()

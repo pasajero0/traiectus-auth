@@ -13,8 +13,13 @@ import { testDatabase, testEnv, truncateAll } from '../test/database'
 
 const { db, close } = testDatabase()
 
-const CLIENT = { id: 'harbor', secret: randomBytes(32).toString('base64url') }
 const REDIRECT = 'https://harbor.example/callback'
+const CLIENT = {
+  id: 'harbor',
+  secret: randomBytes(32).toString('base64url'),
+  name: 'Harbor',
+  homeUrl: 'https://harbor.example',
+}
 const ISSUER = 'https://sso.example'
 
 const { privateKey } = generateKeyPairSync('ed25519')

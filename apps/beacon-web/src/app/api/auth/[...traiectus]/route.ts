@@ -86,7 +86,11 @@ export async function POST(
   }
 
   const outcome = signOut()
-  const response = NextResponse.redirect(new URL('/', origin), 303)
+
+  // The SSO session is untouched: leaving this product is not the same as leaving the
+  // identity layer, and the hub — signed in, showing what else is reachable — is a more
+  // useful landing than a bare form that gives no sign anything happened. ADR-0020.
+  const response = NextResponse.redirect(new URL('/', authClientConfig().ssoWebUrl), 303)
   if (outcome.clearSession) response.cookies.delete(SESSION_COOKIE_NAME)
   return response
 }

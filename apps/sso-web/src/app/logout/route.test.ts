@@ -20,7 +20,10 @@ beforeEach(() => {
   process.env['INTERNAL_API_KEY'] = 'test-internal-key'
 })
 
-/** The check that holds the CSRF surface closed — it runs before anything else. */
+/**
+ * The only door — ADR-0020. A product's own sign-out returns to the dashboard without
+ * ending the SSO session; only this button, on the dashboard's own same-origin form, does.
+ */
 describe('the Origin check', () => {
   it('refuses a request carrying no Origin', async () => {
     const response = await logout()
@@ -38,7 +41,7 @@ describe('the Origin check', () => {
 })
 
 describe('signing out', () => {
-  it('revokes the session, clears the cookie, and returns to /', async () => {
+  it('revokes the session, clears the cookie, and returns to the dashboard', async () => {
     vi.mocked(readSessionCookie).mockResolvedValue('trs_live')
 
     const response = await logout({ origin: ORIGIN })
