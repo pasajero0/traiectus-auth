@@ -1,6 +1,7 @@
 import 'server-only'
 
 import {
+  clientsResponseSchema,
   createSessionResponseSchema,
   issueCodeResponseSchema,
   verifyCredentialsResponseSchema,
@@ -59,4 +60,8 @@ export async function issueCode(request: {
 
 export async function revokeSession(token: string): Promise<void> {
   await call('DELETE', '/v1/sessions', { token })
+}
+
+export async function listClients() {
+  return clientsResponseSchema.parse(await call('GET', '/v1/clients'))
 }

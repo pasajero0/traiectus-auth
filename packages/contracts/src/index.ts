@@ -162,3 +162,16 @@ export const tokenResponseSchema = z.object({
 })
 
 export type TokenResponse = z.infer<typeof tokenResponseSchema>
+
+/** What sso-web shows on its own dashboard — never a secret, never a redirect_uri. */
+export const clientsResponseSchema = z.object({
+  clients: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      homeUrl: z.string().url(),
+    }),
+  ),
+})
+
+export type ClientsResponse = z.infer<typeof clientsResponseSchema>

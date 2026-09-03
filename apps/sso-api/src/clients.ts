@@ -10,6 +10,9 @@ const clientSchema = z.object({
   secret: z.string().min(32),
   /** Exact strings — a prefix rule turns one registered path into every path beneath it. */
   redirectUris: z.array(z.string().url()).min(1),
+  /** What a signed-in person sees on the identity service's own dashboard. */
+  name: z.string().min(1).max(64),
+  homeUrl: z.string().url(),
 })
 
 const registrySchema = z.array(clientSchema).min(1)
