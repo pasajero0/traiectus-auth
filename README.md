@@ -130,4 +130,6 @@ two-factor authentication, social login — at the identity service, so the prod
 exactly one issuer ([ADR-0017](docs/decisions/0017-the-authorization-response-names-its-issuer.md)) —
 password reset, email verification, roles and
 permissions, a shared design layer in `packages/ui` (Tailwind and shadcn/ui, copied in
-rather than depended on), and a React Native client on the same identity service.
+rather than depended on), a React Native client on the same identity service, and
+forwarding the real client IP from `sso-web` to `sso-api` so rate limiting can key on the
+caller instead of one bucket shared by every request the identity service receives.

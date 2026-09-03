@@ -90,24 +90,34 @@ function requireInternalKey(env: Env): preHandlerAsyncHookHandler {
   }
 }
 
+/** Anything a route wants attached that is not the audience's own concern — e.g. a
+ * plugin-specific `config`, read by that plugin alone. */
+export type RouteOptions = { config?: Record<string, unknown> }
+
 export interface AudienceRouter {
-  get(url: string, handler: RouteHandlerMethod): AudienceRouter
-  post(url: string, handler: RouteHandlerMethod): AudienceRouter
-  put(url: string, handler: RouteHandlerMethod): AudienceRouter
-  patch(url: string, handler: RouteHandlerMethod): AudienceRouter
-  delete(url: string, handler: RouteHandlerMethod): AudienceRouter
+  get(url: string, handler: RouteHandlerMethod, options?: RouteOptions): AudienceRouter
+  post(url: string, handler: RouteHandlerMethod, options?: RouteOptions): AudienceRouter
+  put(url: string, handler: RouteHandlerMethod, options?: RouteOptions): AudienceRouter
+  patch(url: string, handler: RouteHandlerMethod, options?: RouteOptions): AudienceRouter
+  delete(url: string, handler: RouteHandlerMethod, options?: RouteOptions): AudienceRouter
   readonly plugin: FastifyPluginAsync
 }
 
 function router(audience: Audience, guard: preHandlerAsyncHookHandler | null): AudienceRouter {
-  const routes: Array<{ method: DeclaredRoute['method']; url: string; handler: RouteHandlerMethod }> =
-    []
+  const routes: Array<{
+    method: DeclaredRoute['method']
+    url: string
+    handler: RouteHandlerMethod
+    options?: RouteOptions
+  }> = []
 
-  const add = (method: DeclaredRoute['method']) => (url: string, handler: RouteHandlerMethod) => {
-    declared.push({ method, url, audience })
-    routes.push({ method, url, handler })
-    return api
-  }
+  const add =
+    (method: DeclaredRoute['method']) =>
+    (url: string, handler: RouteHandlerMethod, options?: RouteOptions) => {
+      declared.push({ method, url, audience })
+      routes.push({ method, url, handler, options })
+      return api
+    }
 
   const api: AudienceRouter = {
     get: add('GET'),
@@ -116,11 +126,12 @@ function router(audience: Audience, guard: preHandlerAsyncHookHandler | null): A
     patch: add('PATCH'),
     delete: add('DELETE'),
     plugin: async (app) => {
-      for (const { method, url, handler } of routes) {
+      for (const { method, url, handler, options } of routes) {
         app.route({
           method,
           url,
           ...(guard ? { preHandler: guard } : {}),
+          ...(options?.config ? { config: options.config } : {}),
           handler,
         })
       }

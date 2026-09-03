@@ -1,4 +1,5 @@
 import formbody from '@fastify/formbody'
+import rateLimit from '@fastify/rate-limit'
 import Fastify, { type FastifyInstance } from 'fastify'
 
 import type { Database } from './db/client'
@@ -35,6 +36,10 @@ export async function buildServer(env: Env, db: Database): Promise<FastifyInstan
   // RFC 6749 §4.1.3 sends the token endpoint a form, not JSON. Fastify parses JSON on its
   // own and forms only with this, so registering it is what makes the endpoint standard.
   await app.register(formbody)
+
+  // `global: false`: opt in per route via `config.rateLimit`, so a route that says nothing
+  // about it stays unlimited rather than inheriting a default meant for one endpoint.
+  await app.register(rateLimit, { global: false })
 
   await app.register(healthRoutes(env))
   await app.register(userRoutes(env, db))

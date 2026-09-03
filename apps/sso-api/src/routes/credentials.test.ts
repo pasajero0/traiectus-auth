@@ -90,6 +90,28 @@ describe('POST /v1/credentials/verify', () => {
   })
 })
 
+/**
+ * The limiter sits ahead of the auth guard (`onRequest`, before the internal-key
+ * `preHandler`), so a request that will fail for its own reason still spends its share of
+ * the bucket — proof the CPU cap holds regardless of who is asking or whether they are
+ * right to ask.
+ */
+describe('the rate limit on /v1/credentials/verify', () => {
+  it('answers 429 once the bucket for this route is spent, and no other route shares it', async () => {
+    const app = await assemble()
+    const hit = () => app.inject({ method: 'POST', url: '/v1/credentials/verify' })
+
+    let last: Awaited<ReturnType<typeof hit>> | undefined
+    for (let i = 0; i < 10; i += 1) last = await hit()
+    expect(last?.statusCode).not.toBe(429)
+
+    expect((await hit()).statusCode).toBe(429)
+
+    const other = await app.inject({ method: 'POST', url: '/v1/sessions/verify' })
+    expect(other.statusCode).not.toBe(429)
+  })
+})
+
 /** The difference from registration looks like an oversight, so it is pinned here. */
 describe('the verification request schema', () => {
   it('accepts a password too short to register, because that is a wrong password', () => {
