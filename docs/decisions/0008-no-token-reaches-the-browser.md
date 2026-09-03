@@ -2,6 +2,9 @@
 
 **Status:** accepted
 **Date:** 2026-08-31
+**Amended by:** [ADR-0018](0018-the-one-get-that-produces-something.md) — the third
+mitigation below, "no state-changing GET", is a rule for client applications; `/authorize`
+mints a code on a navigation and says why that is not the same thing.
 **Amends:** ADR-0001, section ③ — the access token no longer lives in browser memory.
 
 ## Context
