@@ -9,6 +9,8 @@ const envSchema = z.object({
    * refuses to start rather than come up unable to verify anything.
    */
   ACCESS_TOKEN_PUBLIC_KEY: z.string().min(1),
+  /** Must equal the token'''s `iss`. sso-web'''s origin — see ADR-0017. */
+  ISSUER: z.string().url(),
 })
 
 export type Env = z.infer<typeof envSchema>
