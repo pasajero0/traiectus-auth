@@ -15,7 +15,7 @@ import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/server/session'
  * from the cookie there, so the page never has to unseal the envelope a second time.
  */
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|\\.well-known).*)'],
 }
 
 export async function middleware(request: NextRequest): Promise<Response> {

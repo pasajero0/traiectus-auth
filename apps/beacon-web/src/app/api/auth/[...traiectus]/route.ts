@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { authClientConfig } from '@/server/auth-client'
 import { returnTarget } from '@/server/return-to'
 import {
+  readSessionEnvelope,
   readTransactionEnvelope,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
@@ -40,6 +41,16 @@ export async function GET(
     const result = await completeSignIn(authClientConfig(), { params: searchParams, transaction })
 
     if (!result.signedIn) {
+      // A GET can be replayed — a second tab, a double click, a browser prefetching the
+      // link — and a transaction is one-time-use by design. If an earlier pass already
+      // succeeded, this failure is a stale echo of a request that already won, not a
+      // reason to show an error to someone who is, in fact, signed in.
+      if (await readSessionEnvelope()) {
+        const already = NextResponse.redirect(new URL('/', base), 303)
+        already.cookies.delete(TRANSACTION_COOKIE_NAME)
+        return already
+      }
+
       const failed = new NextResponse(`sign-in failed: ${result.reason}\n`, {
         status: 400,
         headers: { 'content-type': 'text/plain; charset=utf-8' },
