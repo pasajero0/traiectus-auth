@@ -18,6 +18,11 @@ export type Client = z.infer<typeof clientSchema>
 
 let registry: readonly Client[] | null = null
 
+/** The registry is read once per process, so tests that build a different one say so. */
+export function resetClients(): void {
+  registry = null
+}
+
 export function clients(env: Env): readonly Client[] {
   if (registry) return registry
 
