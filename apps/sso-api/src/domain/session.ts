@@ -43,7 +43,7 @@ export async function openSession(
 export async function verifySession(
   db: Database,
   token: string,
-): Promise<{ userId: string; expiresAt: Date } | null> {
+): Promise<{ id: string; userId: string; expiresAt: Date } | null> {
   if (!isTokenOfKind(token, 'session')) return null
 
   const [session] = await db
@@ -57,7 +57,11 @@ export async function verifySession(
         gt(ssoSessions.lastUsedAt, sql`now() - ${SSO_SESSION_IDLE}`),
       ),
     )
-    .returning({ userId: ssoSessions.userId, expiresAt: ssoSessions.expiresAt })
+    .returning({
+      id: ssoSessions.id,
+      userId: ssoSessions.userId,
+      expiresAt: ssoSessions.expiresAt,
+    })
 
   return session ?? null
 }

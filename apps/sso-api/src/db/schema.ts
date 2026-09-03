@@ -119,3 +119,35 @@ export const refreshTokens = pgTable(
 
 export type RefreshFamily = typeof refreshFamilies.$inferSelect
 export type RefreshToken = typeof refreshTokens.$inferSelect
+
+/**
+ * An authorization code — ADR-0001 ②. Sixty seconds, one use, and bound to everything that
+ * has to match when it comes back: the client, the exact redirect, the PKCE challenge, and
+ * the SSO session that produced it, so that logging out invalidates codes never redeemed.
+ */
+export const authorizationCodes = pgTable(
+  'authorization_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    codeHash: text('code_hash').notNull().unique(),
+    clientId: text('client_id').notNull(),
+    redirectUri: text('redirect_uri').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    ssoSessionId: uuid('sso_session_id')
+      .notNull()
+      .references(() => ssoSessions.id, { onDelete: 'cascade' }),
+    /** BASE64URL(SHA256(verifier)). S256 only — ADR-0016. */
+    codeChallenge: text('code_challenge').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('authorization_codes_sso_session_id_idx').on(table.ssoSessionId),
+    index('authorization_codes_expires_at_idx').on(table.expiresAt),
+  ],
+)
+
+export type AuthorizationCode = typeof authorizationCodes.$inferSelect

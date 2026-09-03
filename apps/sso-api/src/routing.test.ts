@@ -71,7 +71,7 @@ describe('the route table', () => {
 
     expect(declaredRoutes().length).toBeGreaterThan(0)
     for (const route of declaredRoutes()) {
-      expect(['public', 'internal']).toContain(route.audience)
+      expect(['public', 'internal', 'client']).toContain(route.audience)
     }
   })
 })

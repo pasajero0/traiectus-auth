@@ -26,6 +26,20 @@ const envSchema = z.object({
     .string()
     .refine((value) => Buffer.from(value, 'base64').length === 32, '32 bytes, base64')
     .optional(),
+  /**
+   * EdDSA private key as a one-line JWK, and the issuer identifier that goes into every
+   * access token and into the `iss` of an authorization response (ADR-0017). Optional for
+   * the same reason as the rest: a deployment without them boots, and the code path that
+   * needs one names it.
+   */
+  ACCESS_TOKEN_PRIVATE_KEY: z.string().optional(),
+  ISSUER: z.string().url().optional(),
+  /**
+   * The client registry, as JSON: `[{ "id", "secret", "redirectUris": [...] }]`. Optional
+   * until authorization codes are issued, so a deployment without it still boots; the code
+   * path that needs it says so by name. Clients are configuration — see src/clients.ts.
+   */
+  CLIENTS: z.string().optional(),
   /** Set by Render on deploy; absent locally. */
   RENDER_GIT_COMMIT: z.string().optional(),
 })

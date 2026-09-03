@@ -95,6 +95,70 @@ export const authorizeRequestSchema = z.object({
   redirect_uri: z.string().url().max(2048),
   response_type: z.literal('code'),
   state: z.string().min(1).max(512).optional(),
+  /** BASE64URL(SHA256(verifier)) — 43 characters, and nothing else is accepted. */
+  code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  /** No `plain`: a downgrade path is the attack it would be defending against. ADR-0016. */
+  code_challenge_method: z.literal('S256'),
 })
 
+/** RFC 7636's verifier: 43 to 128 characters of the unreserved set. */
+export const codeVerifierSchema = z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/)
+
 export type AuthorizeRequest = z.infer<typeof authorizeRequestSchema>
+
+/** Issuing an authorization code. Internal: only sso-web asks, and it asks with a session. */
+export const issueCodeRequestSchema = z.object({
+  sessionToken: z.string().min(1).max(256),
+  clientId: z.string().min(1).max(64),
+  redirectUri: z.string().url().max(2048),
+  codeChallenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+})
+
+export type IssueCodeRequest = z.infer<typeof issueCodeRequestSchema>
+
+/**
+ * The refusal carries a reason because sso-web has to answer differently: an invalid session
+ * sends the browser to sign in, while an unregistered client or redirect must not produce a
+ * redirect at all.
+ */
+export const issueCodeResponseSchema = z.discriminatedUnion('issued', [
+  z.object({
+    issued: z.literal(true),
+    code: z.string().min(1),
+    expiresAt: z.string().datetime(),
+  }),
+  z.object({
+    issued: z.literal(false),
+    reason: z.enum(['no_session', 'unknown_client', 'redirect_not_allowed']),
+  }),
+])
+
+export type IssueCodeResponse = z.infer<typeof issueCodeResponseSchema>
+
+/**
+ * The token endpoint — RFC 6749's two grants, and no others. The client authenticates with
+ * HTTP Basic; nothing about the client travels in this body.
+ */
+export const tokenRequestSchema = z.discriminatedUnion('grant_type', [
+  z.object({
+    grant_type: z.literal('authorization_code'),
+    code: z.string().min(1).max(256),
+    redirect_uri: z.string().url().max(2048),
+    code_verifier: codeVerifierSchema,
+  }),
+  z.object({
+    grant_type: z.literal('refresh_token'),
+    refresh_token: z.string().min(1).max(256),
+  }),
+])
+
+export type TokenRequest = z.infer<typeof tokenRequestSchema>
+
+export const tokenResponseSchema = z.object({
+  access_token: z.string().min(1),
+  token_type: z.literal('Bearer'),
+  expires_in: z.number().int().positive(),
+  refresh_token: z.string().min(1),
+})
+
+export type TokenResponse = z.infer<typeof tokenResponseSchema>

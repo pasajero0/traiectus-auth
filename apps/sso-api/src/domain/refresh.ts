@@ -11,9 +11,9 @@ import { hashToken, isTokenOfKind, mintToken } from './token'
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0]
 
 export type RotationOutcome =
-  | { outcome: 'rotated'; token: string; expiresAt: Date }
+  | { outcome: 'rotated'; token: string; expiresAt: Date; userId: string }
   /** The concurrency case: the same successor the winner received. Nothing is revoked. */
-  | { outcome: 'replayed'; token: string; expiresAt: Date }
+  | { outcome: 'replayed'; token: string; expiresAt: Date; userId: string }
   /** An attack. The family is already revoked; these fields exist to be logged. */
   | {
       outcome: 'reuse'
@@ -90,6 +90,7 @@ export async function rotateRefreshToken(
     const [family] = await tx
       .select({
         id: refreshFamilies.id,
+        userId: refreshFamilies.userId,
         clientId: refreshFamilies.clientId,
         revokedAt: refreshFamilies.revokedAt,
         over: sql<boolean>`${refreshFamilies.expiresAt} <= now()`,
@@ -147,7 +148,12 @@ export async function rotateRefreshToken(
 
       await wipeClosedWindows(tx, family.id)
 
-      return { outcome: 'rotated', token: successor, expiresAt: issued.expiresAt }
+      return {
+        outcome: 'rotated',
+        token: successor,
+        expiresAt: issued.expiresAt,
+        userId: family.userId,
+      }
     }
 
     // No row came back. Holding the family lock means whoever beat us has committed, so
@@ -179,7 +185,12 @@ export async function rotateRefreshToken(
           .limit(1)
 
         if (successorRow) {
-          return { outcome: 'replayed', token: replayed, expiresAt: successorRow.expiresAt }
+          return {
+            outcome: 'replayed',
+            token: replayed,
+            expiresAt: successorRow.expiresAt,
+            userId: family.userId,
+          }
         }
       }
     }

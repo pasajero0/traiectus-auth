@@ -31,3 +31,13 @@ export const REFRESH_TOKEN = days(14)
 
 /** How long a losing concurrent refresh may still claim the successor. ADR-0009 ②. */
 export const REPLAY_WINDOW = seconds(10)
+
+/** An authorization code, from issue to redemption. ADR-0001 ②. */
+export const AUTHORIZATION_CODE = seconds(60)
+
+/**
+ * The access token, in seconds rather than an interval: it is signed and self-contained, so
+ * its expiry is carried in the token and computed by whoever signs it, not by Postgres. The
+ * exception is kept in this file so that no lifetime is decided anywhere else. ADR-0001.
+ */
+export const ACCESS_TOKEN_SECONDS = 300

@@ -7,7 +7,15 @@ import type {
   RouteHandlerMethod,
 } from 'fastify'
 
+import { findClient, presentsSecret, type Client } from './clients'
 import type { Env } from './env'
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** Set by `clientRouter` and by nothing else. Absent on every other audience. */
+    client?: Client
+  }
+}
 
 /**
  * A route cannot be registered without naming its audience — see ADR-0007.
@@ -23,7 +31,7 @@ import type { Env } from './env'
  * nobody has written yet.
  */
 
-export type Audience = 'public' | 'internal'
+export type Audience = 'public' | 'internal' | 'client'
 
 export type DeclaredRoute = {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -122,9 +130,47 @@ function router(audience: Audience, guard: preHandlerAsyncHookHandler | null): A
   return api
 }
 
+/**
+ * The client's own credentials, over HTTP Basic as RFC 6749 asks. A client id is not a
+ * secret — it travels in redirect URLs — so no effort is spent hiding which ids exist; the
+ * secret itself is compared in constant time.
+ */
+function requireClientCredentials(env: Env): preHandlerAsyncHookHandler {
+  return async function authenticate(request, reply): Promise<void> {
+    const client = fromBasic(env, request.headers.authorization)
+
+    if (!client) {
+      await reply
+        .code(401)
+        .header('www-authenticate', 'Basic realm="traiectus"')
+        .send(unauthorized)
+      return
+    }
+
+    request.client = client
+  }
+}
+
+function fromBasic(env: Env, header: string | undefined): Client | null {
+  if (!header?.startsWith('Basic ')) return null
+
+  const decoded = Buffer.from(header.slice('Basic '.length), 'base64').toString('utf8')
+  const separator = decoded.indexOf(':')
+  if (separator < 0) return null
+
+  const client = findClient(env, decoded.slice(0, separator))
+  if (!client) return null
+
+  return presentsSecret(client, decoded.slice(separator + 1)) ? client : null
+}
+
 /** Unauthenticated, and said out loud. The only way to serve an open request. */
 export const publicRouter = (): AudienceRouter => router('public', null)
 
 /** Reachable only by sso-web, over the internal shared secret. */
 export const internalRouter = (env: Env): AudienceRouter =>
   router('internal', requireInternalKey(env))
+
+/** Reachable by a registered client's own server, over its client credentials. */
+export const clientRouter = (env: Env): AudienceRouter =>
+  router('client', requireClientCredentials(env))

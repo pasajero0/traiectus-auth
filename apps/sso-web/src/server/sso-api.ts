@@ -2,6 +2,7 @@ import 'server-only'
 
 import {
   createSessionResponseSchema,
+  issueCodeResponseSchema,
   verifyCredentialsResponseSchema,
   verifySessionResponseSchema,
 } from '@traiectus/contracts'
@@ -43,6 +44,17 @@ export async function openSession(userId: string) {
 
 export async function verifySession(token: string) {
   return verifySessionResponseSchema.parse(await call('POST', '/v1/sessions/verify', { token }))
+}
+
+export async function issueCode(request: {
+  sessionToken: string
+  clientId: string
+  redirectUri: string
+  codeChallenge: string
+}) {
+  return issueCodeResponseSchema.parse(
+    await call('POST', '/v1/authorization-codes', request),
+  )
 }
 
 export async function revokeSession(token: string): Promise<void> {
