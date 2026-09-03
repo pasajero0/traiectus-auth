@@ -1,15 +1,41 @@
 import 'server-only'
 
-/**
- * This application's own session: an AEAD-sealed envelope — access token, its
- * expiry, refresh token — in an HttpOnly, Secure, SameSite=Lax cookie on this
- * host, carrying the `__Host-` prefix in production.
- *
- * No token reaches the browser. The page calls this application's own routes
- * with nothing but the cookie; the server unseals and attaches the bearer to
- * harbor-api itself. See docs/decisions/0008-no-token-reaches-the-browser.md.
- *
- * Day 6.
- */
+import { cookies } from 'next/headers'
 
+/**
+ * This application's own session — ADR-0001 ③. Both tokens live sealed inside one cookie
+ * on this host; nothing here ever reaches the browser as a bearer.
+ */
 export const SESSION_COOKIE_NAME = 'harbor_session'
+
+/** The PKCE transaction between /login and /callback. Ten minutes, matching auth-client. */
+export const TRANSACTION_COOKIE_NAME = 'harbor_txn'
+
+function cookieOptions(secure: boolean, maxAgeSeconds: number) {
+  return {
+    httpOnly: true,
+    secure,
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: maxAgeSeconds,
+  }
+}
+
+/** 14 days is the outer bound; what actually gates access is the envelope inside. */
+export function sessionCookieOptions(secure: boolean) {
+  return cookieOptions(secure, 14 * 24 * 3600)
+}
+
+export function transactionCookieOptions(secure: boolean) {
+  return cookieOptions(secure, 600)
+}
+
+export async function readSessionEnvelope(): Promise<string | null> {
+  const store = await cookies()
+  return store.get(SESSION_COOKIE_NAME)?.value ?? null
+}
+
+export async function readTransactionEnvelope(): Promise<string | null> {
+  const store = await cookies()
+  return store.get(TRANSACTION_COOKIE_NAME)?.value ?? null
+}
