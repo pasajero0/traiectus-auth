@@ -9,7 +9,7 @@
  * Exit code 0 = clean, 1 = violations found (printed with file:line).
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -192,6 +192,68 @@ const REQUIRED_RULES = [
   },
 ]
 
+/**
+ * A variable a deployment platform sets on its own — Render's own build metadata, say.
+ * Nothing a developer copies into a local .env, so its absence from .env.example is not
+ * drift.
+ */
+const PLATFORM_INJECTED_ENV_VARS = new Set(['RENDER_GIT_COMMIT'])
+
+const ENV_SCHEMA_ID = 'env/schema-and-example-agree'
+const ENV_SCHEMA_MESSAGE =
+  'A variable the schema reads and a variable the example documents must be the same set. One the schema requires and the example never mentions is a deploy with no way to know it exists; one the example lists and the schema never reads is a stale line nobody will notice going wrong.'
+
+/** The schema's own field names — `KEY: z....` at the object literal's top level, so a
+ * `.refine()` continuation on the next line is never mistaken for a second field. */
+function envSchemaKeys(text) {
+  const body = /z\.object\(\{([\s\S]*?)\n\}\)/.exec(text)?.[1]
+  if (body === undefined) return null
+  return new Set([...body.matchAll(/^\s+([A-Z][A-Z0-9_]*):/gm)].map(([, name]) => name))
+}
+
+function envExampleKeys(text) {
+  return new Set([...text.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map(([, name]) => name))
+}
+
+/**
+ * Cross-file by nature — an env.ts read against its app's own .env.example — so this is a
+ * pass of its own rather than a per-file rule in the walk below.
+ */
+function checkEnvSchemasMatchExamples() {
+  for (const app of readdirSync(join(ROOT, 'apps'))) {
+    const appDir = join('apps', app)
+    const envPath = [join(appDir, 'src', 'env.ts'), join(appDir, 'src', 'server', 'env.ts')].find(
+      (candidate) => existsSync(join(ROOT, candidate)),
+    )
+    const examplePath = join(appDir, ENV_EXAMPLE)
+    if (!envPath || !existsSync(join(ROOT, examplePath))) continue
+
+    const schemaKeys = envSchemaKeys(readFileSync(join(ROOT, envPath), 'utf8'))
+    if (!schemaKeys) continue
+    const exampleKeys = envExampleKeys(readFileSync(join(ROOT, examplePath), 'utf8'))
+
+    for (const key of schemaKeys) {
+      if (PLATFORM_INJECTED_ENV_VARS.has(key) || exampleKeys.has(key)) continue
+      violations.push({
+        file: examplePath,
+        line: 1,
+        rule: { id: ENV_SCHEMA_ID, message: ENV_SCHEMA_MESSAGE },
+        detail: `${posix(envPath)} requires ${key}; missing here`,
+      })
+    }
+
+    for (const key of exampleKeys) {
+      if (schemaKeys.has(key)) continue
+      violations.push({
+        file: examplePath,
+        line: 1,
+        rule: { id: ENV_SCHEMA_ID, message: ENV_SCHEMA_MESSAGE },
+        detail: `${key} is documented here; ${posix(envPath)} never reads it`,
+      })
+    }
+  }
+}
+
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
     if (SKIP_DIRS.has(entry)) continue
@@ -251,6 +313,8 @@ for (const absolute of walk(ROOT)) {
     }
   }
 }
+
+checkEnvSchemasMatchExamples()
 
 if (violations.length === 0) {
   console.log('guards: ok')
