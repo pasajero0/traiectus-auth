@@ -3,14 +3,14 @@ import { createHash } from 'node:crypto'
 import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 
 import type { Database } from '../db/client'
-import { authorizationCodes } from '../db/schema'
+import { authorizationCodes, ssoSessions } from '../db/schema'
 import { AUTHORIZATION_CODE } from './lifetimes'
 import { hashToken, isTokenOfKind, mintToken } from './token'
 
 export type CodeRedemption =
   | { redeemed: true; userId: string; ssoSessionId: string }
   /** `replayed` is an attack and is logged as one — ADR-0001 ②. The rest are merely over. */
-  | { redeemed: false; reason: 'unknown' | 'expired' | 'replayed' | 'mismatch' }
+  | { redeemed: false; reason: 'unknown' | 'expired' | 'replayed' | 'mismatch' | 'revoked' }
 
 export async function issueCode(
   db: Database,
@@ -42,10 +42,18 @@ export async function issueCode(
   return { code: value, expiresAt: issued.expiresAt }
 }
 
+/** Not a foreign-key check: `sso_session_id` is never null, but ended a session may be. */
+const sessionIsLive = sql`not exists (
+  select 1 from ${ssoSessions}
+   where ${ssoSessions.id} = ${authorizationCodes.ssoSessionId}
+     and ${ssoSessions.revokedAt} is not null
+)`
+
 /**
  * Single use, by the statement that checks it — ADR-0009 ①, the same shape as rotation.
  * Bindings are compared after the code is spent: leaving it live on a wrong verifier would
- * let whoever holds it keep guessing.
+ * let whoever holds it keep guessing. The session check closes ADR-0018's Consequences: a
+ * code is bound to the session that produced it, so logging out invalidates it too.
  */
 export async function redeemCode(
   db: Database,
@@ -63,6 +71,7 @@ export async function redeemCode(
         eq(authorizationCodes.codeHash, codeHash),
         isNull(authorizationCodes.consumedAt),
         gt(authorizationCodes.expiresAt, sql`now()`),
+        sessionIsLive,
       ),
     )
     .returning({
@@ -75,13 +84,18 @@ export async function redeemCode(
 
   if (!spent) {
     const [row] = await db
-      .select({ consumedAt: authorizationCodes.consumedAt })
+      .select({
+        consumedAt: authorizationCodes.consumedAt,
+        sessionRevoked: sql<boolean>`not (${sessionIsLive})`,
+      })
       .from(authorizationCodes)
       .where(eq(authorizationCodes.codeHash, codeHash))
       .limit(1)
 
     if (!row) return { redeemed: false, reason: 'unknown' }
-    return { redeemed: false, reason: row.consumedAt ? 'replayed' : 'expired' }
+    if (row.consumedAt) return { redeemed: false, reason: 'replayed' }
+    if (row.sessionRevoked) return { redeemed: false, reason: 'revoked' }
+    return { redeemed: false, reason: 'expired' }
   }
 
   const matches =

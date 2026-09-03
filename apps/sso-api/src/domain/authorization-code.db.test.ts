@@ -6,7 +6,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { authorizationCodes, users } from '../db/schema'
 import { testDatabase, truncateAll } from '../test/database'
 import { issueCode, redeemCode } from './authorization-code'
-import { openSession, verifySession } from './session'
+import { openSession, revokeSession, verifySession } from './session'
 
 const { db, close } = testDatabase()
 const CLIENT = 'harbor'
@@ -125,6 +125,30 @@ describe('what a code is bound to', () => {
     expect(
       await redeem(code.code, code.verifier, { redirectUri: 'https://harbor.example/elsewhere' }),
     ).toEqual({ redeemed: false, reason: 'mismatch' })
+  })
+})
+
+/** ADR-0018's Consequences: bound to the session that produced it. */
+describe('a code whose session was revoked before redemption', () => {
+  it('is refused, and told apart from an expired one', async () => {
+    const code = await codeFor()
+    await revokeSession(db, code.sessionToken)
+
+    expect(await redeem(code.code, code.verifier)).toEqual({
+      redeemed: false,
+      reason: 'revoked',
+    })
+  })
+
+  it('is left unconsumed, unlike a wrong verifier', async () => {
+    const code = await codeFor()
+    await revokeSession(db, code.sessionToken)
+    await redeem(code.code, code.verifier)
+
+    const [row] = await db
+      .select({ consumedAt: authorizationCodes.consumedAt })
+      .from(authorizationCodes)
+    expect(row!.consumedAt).toBeNull()
   })
 })
 
