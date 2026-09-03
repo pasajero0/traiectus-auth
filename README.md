@@ -122,6 +122,9 @@ is worse than one that does not run.
 This is a reference implementation demonstrating the model — not a production-ready
 identity provider. Full OIDC is out of scope; see Roadmap.
 
+The model is the one Keycloak, Zitadel and Ory Hydra implement, written out so that every
+decision in it is visible and argued — see `docs/decisions`.
+
 **Roadmap:** OIDC discovery and JWKS, signing-key rotation, public clients,
 two-factor authentication, social login — at the identity service, so the products keep
 exactly one issuer ([ADR-0017](docs/decisions/0017-the-authorization-response-names-its-issuer.md)) —

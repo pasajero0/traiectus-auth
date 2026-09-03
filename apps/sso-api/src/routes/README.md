@@ -1,24 +1,33 @@
 # Routes
 
-Two audiences, kept apart on purpose (ADR-0004).
+Three audiences, kept apart on purpose — ADR-0004 for why they are separated, ADR-0007 for
+why a route cannot be registered without naming one.
 
-## Public — called by other machines
+Every route here exists. This is a state document, not a plan: what is scheduled lives in
+the working plan, and what has been decided lives in an ADR. ADR-0012.
 
-| Route | Caller | Day |
-|---|---|---|
-| `GET /health` | uptime pinger | 1 |
-| `POST /v1/token` | a client's server, exchanging a code or rotating a refresh token | 5 |
+## Public — called by anyone
+
+| Route | Caller |
+|---|---|
+| `GET /health` | the uptime pinger, and Render's own probe |
 
 ## Internal — called only by `sso-web`, over a shared secret
 
-| Route | Purpose | Day |
-|---|---|---|
-| `POST /v1/users` | register | 2 |
-| `POST /v1/credentials/verify` | check a password, rate limited | 3 |
-| `POST /v1/sessions` | open an SSO session | 3 |
-| `POST /v1/sessions/verify` | validate and slide it | 3 |
-| `DELETE /v1/sessions` | revoke it, and every refresh family with it | 8 |
-| `POST /v1/authorization-codes` | issue a single-use code for a client | 5 |
+| Route | Purpose |
+|---|---|
+| `POST /v1/users` | register |
+| `POST /v1/credentials/verify` | check a password |
+| `POST /v1/sessions` | open an SSO session |
+| `POST /v1/sessions/verify` | validate it and slide its idle window |
+| `DELETE /v1/sessions` | revoke it |
+| `POST /v1/authorization-codes` | issue a single-use code for a client |
+
+## Client — called by a registered client's own server, over HTTP Basic
+
+| Route | Purpose |
+|---|---|
+| `POST /v1/token` | exchange an authorization code, or rotate a refresh token |
 
 A session identifier is a bearer secret, so it travels in the body and never in the
 path: a path reaches `req.url`, and from there the Fastify and Render logs, where it
@@ -27,8 +36,6 @@ would outlive the session it names. Redaction covers headers, not the path. ADR-
 Nothing here renders HTML. The browser never reaches this service.
 
 ## Response codes
-
-Only the routes that exist. The rest get their codes when they are written, not before.
 
 ### POST /v1/users
 
@@ -71,3 +78,21 @@ answered the same as a live one.
 - **204 No Content** — nothing more to say
 - **400 Bad Request** — malformed body
 - **401 Unauthorized** — internal key missing or wrong
+
+### POST /v1/authorization-codes
+
+Internal. Issues a single-use authorization code for a client.
+
+- **200 OK** — the request was answered; body says whether a code was issued, and if not why
+- **400 Bad Request** — malformed body
+- **401 Unauthorized** — internal key missing or wrong
+
+### POST /v1/token
+
+Client. Exchanges an authorization code, or rotates a refresh token. The body is form
+encoded, as RFC 6749 §4.1.3 specifies.
+
+- **200 OK** — body carries `access_token`, `token_type`, `expires_in` and `refresh_token`
+- **400 Bad Request** — `invalid_request` for a malformed body; `invalid_grant` for a code
+  or token that is spent, expired, bound to something else, or in a revoked family
+- **401 Unauthorized** — client credentials missing or wrong
