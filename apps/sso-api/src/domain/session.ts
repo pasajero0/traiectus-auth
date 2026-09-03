@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
 
 import type { Database, Tx } from '../db/client'
 import { ssoSessions } from '../db/schema'
@@ -64,6 +64,24 @@ export async function verifySession(
     })
 
   return session ?? null
+}
+
+/**
+ * ADR-0015: garbage is a row a week past its hard expiry, or a week past revocation — long
+ * enough that an incident is investigated before its evidence is gone.
+ */
+export async function sweepExpiredSessions(db: Database): Promise<void> {
+  await db
+    .delete(ssoSessions)
+    .where(
+      or(
+        lt(ssoSessions.expiresAt, sql`now() - interval '7 days'`),
+        and(
+          isNotNull(ssoSessions.revokedAt),
+          lt(ssoSessions.revokedAt, sql`now() - interval '7 days'`),
+        ),
+      ),
+    )
 }
 
 /**

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import { and, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
 
 import type { Database } from '../db/client'
 import { authorizationCodes, ssoSessions } from '../db/schema'
@@ -106,6 +106,26 @@ export async function redeemCode(
   if (!matches) return { redeemed: false, reason: 'mismatch' }
 
   return { redeemed: true, userId: spent.userId, ssoSessionId: spent.ssoSessionId }
+}
+
+/**
+ * ADR-0015/ADR-0018: "on the same terms as everything else with a lifetime." A consumed
+ * code — redeemed, or spent on a failed check, ADR-0009 ① — is done at `consumed_at`, which
+ * is why that clause deletes it sooner than an unconsumed code's own 60-second `expires_at`
+ * plus the week.
+ */
+export async function sweepExpiredCodes(db: Database): Promise<void> {
+  await db
+    .delete(authorizationCodes)
+    .where(
+      or(
+        lt(authorizationCodes.expiresAt, sql`now() - interval '7 days'`),
+        and(
+          isNotNull(authorizationCodes.consumedAt),
+          lt(authorizationCodes.consumedAt, sql`now() - interval '7 days'`),
+        ),
+      ),
+    )
 }
 
 /** S256, and only S256 — ADR-0016. */

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { and, eq, gt, isNotNull, isNull, lt, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
 
 import type { Database, Tx } from '../db/client'
 import { refreshFamilies, refreshTokens } from '../db/schema'
@@ -246,4 +246,43 @@ async function wipeClosedWindows(tx: Tx, familyId: string) {
         isNotNull(refreshTokens.successorCiphertext),
       ),
     )
+}
+
+/**
+ * ADR-0015. Garbage is a row a week past hard expiry or a week past its terminal event — for
+ * a token that is `consumed_at` (superseded by a successor), for a family that is
+ * `revoked_at`. Deleting a garbage family cascades whatever tokens are still attached; most
+ * are already gone on their own `consumed_at` rule by then. The closed-window wipe below is
+ * the sequential-scan twin of `wipeClosedWindows` above — for a family that goes idle before
+ * its next rotation ever wipes its own.
+ */
+export async function sweepRefreshRows(db: Database): Promise<void> {
+  await db
+    .delete(refreshTokens)
+    .where(
+      or(
+        lt(refreshTokens.expiresAt, sql`now() - interval '7 days'`),
+        and(
+          isNotNull(refreshTokens.consumedAt),
+          lt(refreshTokens.consumedAt, sql`now() - interval '7 days'`),
+        ),
+      ),
+    )
+
+  await db
+    .delete(refreshFamilies)
+    .where(
+      or(
+        lt(refreshFamilies.expiresAt, sql`now() - interval '7 days'`),
+        and(
+          isNotNull(refreshFamilies.revokedAt),
+          lt(refreshFamilies.revokedAt, sql`now() - interval '7 days'`),
+        ),
+      ),
+    )
+
+  await db
+    .update(refreshTokens)
+    .set({ successorCiphertext: null })
+    .where(and(lt(refreshTokens.replayUntil, sql`now()`), isNotNull(refreshTokens.successorCiphertext)))
 }

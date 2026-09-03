@@ -12,6 +12,7 @@ import { sessionRoutes } from './routes/sessions'
 import { tokenRoutes } from './routes/token'
 import { userRoutes } from './routes/users'
 import { recordRoutes } from './routing'
+import { maybeSweep } from './sweeper'
 
 /**
  * Builds the server without starting it, so tests can drive it through
@@ -32,6 +33,11 @@ export async function buildServer(env: Env, db: Database): Promise<FastifyInstan
 
   // Before any route, so the table is complete — see ADR-0007.
   recordRoutes(app)
+
+  // ADR-0015: an ordinary response is what starts a sweep; nothing here awaits it.
+  app.addHook('onResponse', async (request) => {
+    maybeSweep(db, request.log)
+  })
 
   // RFC 6749 §4.1.3 sends the token endpoint a form, not JSON. Fastify parses JSON on its
   // own and forms only with this, so registering it is what makes the endpoint standard.
