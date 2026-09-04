@@ -9,7 +9,7 @@ import config, { securityHeaders } from '../../next.config'
 const required = {
   'Content-Security-Policy': "frame-ancestors 'none'",
   'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'no-referrer',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Content-Type-Options': 'nosniff',
 }
 

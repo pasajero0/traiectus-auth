@@ -2,8 +2,13 @@ import type { NextConfig } from 'next'
 
 /**
  * Sent on every response. `frame-ancestors` is the load-bearing one on this app: a sign-in
- * page that can be framed can be clicked through. `no-referrer` keeps the address that
- * `/register` carries in its query string on a rejected attempt out of outbound requests.
+ * page that can be framed can be clicked through. The referrer policy still keeps the
+ * address `/register` carries in its query string off outbound requests — cross-origin
+ * gets the origin alone, without path or query.
+ *
+ * Not `no-referrer`: it makes the browser send `Origin: null` on a form navigation, which
+ * every Origin-checked POST here then refuses. Tried on 04/09; it 403'd sign-in,
+ * registration and both products' sign-out.
  *
  * No `script-src` yet — a policy that breaks only in production is worse than none, and it
  * needs its own pass. Known gaps.
@@ -11,7 +16,7 @@ import type { NextConfig } from 'next'
 export const securityHeaders = [
   { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
   { key: 'X-Frame-Options', value: 'DENY' },
-  { key: 'Referrer-Policy', value: 'no-referrer' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
 ]
 
