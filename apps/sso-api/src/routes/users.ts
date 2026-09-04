@@ -29,11 +29,14 @@ function driverError(error: unknown): Record<string, unknown> | null {
  * Registration. Internal: the browser never reaches this service, only sso-web does,
  * carrying the shared secret.
  *
- * The answer is truthful — 409 when the address is taken. Hiding whether an account
- * exists is a property of the *browser* boundary, and belongs to sso-web, which shows
- * the same page either way. An internal API that lies to its only caller cannot be
- * reasoned about by the caller, and buys nothing: whoever can reach it already holds
- * the secret.
+ * The answer is truthful — 409 when the address is taken. An internal API that lies to its
+ * only caller cannot be reasoned about by the caller, and buys nothing: whoever can reach
+ * it already holds the secret.
+ *
+ * sso-web passes that conflict on to the person rather than hiding it, and ADR-0022 is why:
+ * registration signs them in on success, so the outcome is readable from where the browser
+ * lands however the message is worded. Signing in is the path that hides it, in both
+ * message and hash timing.
  */
 export function userRoutes(env: Env, db: Database) {
   return internalRouter(env).post('/v1/users', async (request, reply) => {

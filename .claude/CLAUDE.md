@@ -80,8 +80,11 @@ A public auth project with a hole is worse than no project. Non-negotiable:
 - Refresh tokens rotate; presenting a used one revokes the whole family, outside the
   ten-second same-client replay window that keeps concurrent refreshes from self-revoking.
   ADR-0009.
-- Rate limiting on login and token endpoints.
-- Errors must not reveal whether an account exists.
+- Rate limiting on login, registration and token endpoints.
+- Signing in must not reveal whether an account exists — one message for every failure, and
+  equal time, so an unknown address costs the same argon2id hash as a real one. Registration
+  is the stated exception: it signs the person in on success, so the outcome is readable
+  from where the browser lands whatever the page says. ADR-0022.
 - The internal key between `sso-web` and `sso-api` is configuration only, never committed.
 
 ## Provenance
