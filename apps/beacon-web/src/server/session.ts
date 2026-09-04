@@ -11,6 +11,9 @@ export const SESSION_COOKIE_NAME = 'beacon_session'
 /** The PKCE transaction between /login and /callback. Ten minutes, matching auth-client. */
 export const TRANSACTION_COOKIE_NAME = 'beacon_txn'
 
+/** Set for one bounce only, so an expired transaction cannot become a redirect loop. */
+export const RETRY_COOKIE_NAME = 'beacon_signin_retry'
+
 function cookieOptions(secure: boolean, maxAgeSeconds: number) {
   return {
     httpOnly: true,
@@ -35,7 +38,16 @@ export async function readSessionEnvelope(): Promise<string | null> {
   return store.get(SESSION_COOKIE_NAME)?.value ?? null
 }
 
+export function retryCookieOptions(secure: boolean) {
+  return cookieOptions(secure, 60)
+}
+
 export async function readTransactionEnvelope(): Promise<string | null> {
   const store = await cookies()
   return store.get(TRANSACTION_COOKIE_NAME)?.value ?? null
+}
+
+export async function hasRetried(): Promise<boolean> {
+  const store = await cookies()
+  return store.get(RETRY_COOKIE_NAME) !== undefined
 }

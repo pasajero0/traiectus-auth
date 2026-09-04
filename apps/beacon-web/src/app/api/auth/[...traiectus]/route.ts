@@ -4,8 +4,11 @@ import { NextResponse } from 'next/server'
 import { authClientConfig } from '@/server/auth-client'
 import { returnTarget } from '@/server/return-to'
 import {
+  hasRetried,
   readSessionEnvelope,
   readTransactionEnvelope,
+  RETRY_COOKIE_NAME,
+  retryCookieOptions,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
   TRANSACTION_COOKIE_NAME,
@@ -51,17 +54,31 @@ export async function GET(
         return already
       }
 
+      // Missing or unreadable, which covers the ordinary case — it expired while the
+      // person was at the sign-in form — and the harmless ones, a rotated seal key or a
+      // mangled cookie. Starting again is what they would do themselves; a dead end is
+      // not, and a fresh transaction gives an attacker nothing. Marked so a browser that
+      // keeps no cookie bounces once rather than forever.
+      if (result.reason === 'no_transaction' && !(await hasRetried())) {
+        const again = NextResponse.redirect(new URL('/api/auth/login', base), 303)
+        again.cookies.set(RETRY_COOKIE_NAME, '1', retryCookieOptions(secure))
+        again.cookies.delete(TRANSACTION_COOKIE_NAME)
+        return again
+      }
+
       const failed = new NextResponse(`sign-in failed: ${result.reason}\n`, {
         status: 400,
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       })
       failed.cookies.delete(TRANSACTION_COOKIE_NAME)
+      failed.cookies.delete(RETRY_COOKIE_NAME)
       return failed
     }
 
     const response = NextResponse.redirect(new URL(result.returnTo, base), 303)
     response.cookies.set(SESSION_COOKIE_NAME, result.session, sessionCookieOptions(secure))
     response.cookies.delete(TRANSACTION_COOKIE_NAME)
+    response.cookies.delete(RETRY_COOKIE_NAME)
     return response
   }
 
