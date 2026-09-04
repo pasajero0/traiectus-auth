@@ -1,5 +1,18 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": [
+    "SSO_API_URL",
+    "SSO_WEB_URL",
+    "INTERNAL_API_KEY",
+    "ACCESS_TOKEN_PUBLIC_KEY",
+    "ISSUER",
+    "TRAIECTUS_CLIENT_ID",
+    "TRAIECTUS_CLIENT_SECRET",
+    "SESSION_SEAL_KEY",
+    "HARBOR_API_URL",
+    "BEACON_API_URL",
+    "APP_BASE_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
