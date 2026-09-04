@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 
 import { env } from '@/server/env'
 
-type Project = { id: string; title: string }
+import { HarborArt } from './HarborArt'
 
 /**
  * The token behind this render is already fresh: middleware.ts refreshed it before this
@@ -24,22 +24,22 @@ export default async function DashboardPage() {
     )
   }
 
+  // The body goes unread on purpose: that harbor-api answers at all is the proof.
   const response = await fetch(new URL('/v1/projects', env().HARBOR_API_URL), {
     headers: { authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
 
-  const body = (await response.json()) as { projects?: Project[] }
-
   return (
     <main>
       <p className="eyebrow">Harbor</p>
-      <h1>Dashboard</h1>
-      <p className="status">
-        {response.ok
-          ? `Signed in. ${body.projects?.length ?? 0} projects.`
-          : 'harbor-api did not answer.'}
-      </p>
+      <h1>Welcome aboard</h1>
+      <p className="lede">Signed in through traiectus.</p>
+
+      <HarborArt />
+
+      <p className="status">{response.ok ? 'harbor-api response ok' : 'harbor-api did not answer'}</p>
+
       <form method="post" action="/api/auth/logout">
         <button type="submit">Sign out</button>
       </form>

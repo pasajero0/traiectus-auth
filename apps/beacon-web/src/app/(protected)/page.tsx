@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 
 import { env } from '@/server/env'
 
-type Message = { id: string; subject: string }
+import { BeaconArt } from './BeaconArt'
 
 /**
  * The token behind this render is already fresh: middleware.ts refreshed it before this
@@ -24,22 +24,22 @@ export default async function InboxPage() {
     )
   }
 
+  // The body goes unread on purpose: that beacon-api answers at all is the proof.
   const response = await fetch(new URL('/v1/messages', env().BEACON_API_URL), {
     headers: { authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
 
-  const body = (await response.json()) as { messages?: Message[] }
-
   return (
     <main>
       <p className="eyebrow">Beacon</p>
-      <h1>Inbox</h1>
-      <p className="status">
-        {response.ok
-          ? `Signed in. ${body.messages?.length ?? 0} messages.`
-          : 'beacon-api did not answer.'}
-      </p>
+      <h1>Welcome ashore</h1>
+      <p className="lede">Signed in through traiectus.</p>
+
+      <BeaconArt />
+
+      <p className="status">{response.ok ? 'beacon-api response ok' : 'beacon-api did not answer'}</p>
+
       <form method="post" action="/api/auth/logout">
         <button type="submit">Sign out</button>
       </form>
