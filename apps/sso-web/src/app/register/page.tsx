@@ -1,4 +1,4 @@
-import { PasswordField } from './PasswordField'
+import { PasswordFields } from './PasswordFields'
 
 const ERROR_MESSAGES: Record<string, string> = {
   mismatch: 'Those two passwords do not match.',
@@ -7,13 +7,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   email_taken: 'An account with that email already exists.',
 }
 
-/** Server-rendered, same as `login/page.tsx` — only PasswordField is a client island. */
+/** Server-rendered, same as `login/page.tsx` — only PasswordFields is a client island. */
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; email?: string }>
 }) {
-  const { error } = await searchParams
+  const { error, email } = await searchParams
 
   return (
     <main>
@@ -30,18 +30,21 @@ export default async function RegisterPage({
         <fieldset>
           <legend>Account</legend>
           <label htmlFor="email">Email</label>
-          <input id="email" name="email" type="email" autoComplete="email" required />
+          {/* Carried back by the submit route so a rejected attempt does not cost the
+              address as well. The passwords are never carried anywhere. */}
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            defaultValue={email ?? ''}
+            required
+          />
         </fieldset>
 
         <fieldset>
           <legend>Password</legend>
-          <PasswordField id="password" name="password" label="Password" autoComplete="new-password" />
-          <PasswordField
-            id="confirmPassword"
-            name="confirmPassword"
-            label="Confirm password"
-            autoComplete="new-password"
-          />
+          <PasswordFields />
         </fieldset>
 
         <button type="submit">Create account</button>

@@ -72,9 +72,11 @@ describe('registering', () => {
       { origin: ORIGIN },
       { email: 'someone@example.com', password: 'correct horse battery', confirmPassword: 'wrong' },
     )
+    const location = new URL(response.headers.get('location') ?? '')
 
     expect(response.status).toBe(303)
-    expect(response.headers.get('location')).toBe(`${ORIGIN}/register?error=mismatch`)
+    expect(location.pathname).toBe('/register')
+    expect(location.searchParams.get('error')).toBe('mismatch')
     expect(registerUser).not.toHaveBeenCalled()
     expect(openSession).not.toHaveBeenCalled()
   })
@@ -83,10 +85,38 @@ describe('registering', () => {
     vi.mocked(registerUser).mockResolvedValue({ outcome: 'email_taken' })
 
     const response = await submit({ origin: ORIGIN })
+    const location = new URL(response.headers.get('location') ?? '')
 
     expect(response.status).toBe(303)
-    expect(response.headers.get('location')).toBe(`${ORIGIN}/register?error=email_taken`)
+    expect(location.searchParams.get('error')).toBe('email_taken')
     expect(openSession).not.toHaveBeenCalled()
+  })
+
+  it('carries the address back so a rejected attempt does not cost it too', async () => {
+    vi.mocked(registerUser).mockResolvedValue({ outcome: 'email_taken' })
+
+    const response = await submit({ origin: ORIGIN })
+    const location = new URL(response.headers.get('location') ?? '')
+
+    expect(location.searchParams.get('email')).toBe('someone@example.com')
+  })
+
+  /** A password in a URL is written to history and to every log on the way. ADR-0008. */
+  it('never puts either password in the redirect it answers with', async () => {
+    vi.mocked(registerUser).mockResolvedValue({ outcome: 'email_taken' })
+
+    const mismatched = await submit(
+      { origin: ORIGIN },
+      { email: 'someone@example.com', password: 'correct horse battery', confirmPassword: 'wrong' },
+    )
+    const taken = await submit({ origin: ORIGIN })
+
+    for (const response of [mismatched, taken]) {
+      const location = response.headers.get('location') ?? ''
+      expect(location).not.toContain('correct')
+      expect(location).not.toContain('wrong')
+      expect(location).not.toContain('password=')
+    }
   })
 
   it('falls back to a generic error when sso-api cannot be reached', async () => {

@@ -12,11 +12,13 @@ export const HEALTH_PATH = '/health'
 
 /**
  * Length is the only password rule. Composition rules — a digit, a symbol, a capital —
- * push people towards `Password1!` and buy nothing; twelve characters of anything is
- * worth more. The upper bound is not a policy but a defence: argon2id will faithfully
- * hash a megabyte if asked, and that is a way to spend the server's memory.
+ * push people towards `Password1!` and buy nothing; length of anything is worth more.
+ * Eight is NIST SP 800-63B's floor, and the floor is what this sets: argon2id and the
+ * rate limit on `/v1/credentials/verify` are what actually make a short one expensive to
+ * guess. The upper bound is not a policy but a defence: argon2id will faithfully hash a
+ * megabyte if asked, and that is a way to spend the server's memory.
  */
-export const passwordSchema = z.string().min(12).max(256)
+export const passwordSchema = z.string().min(8).max(256)
 
 export const emailSchema = z
   .string()

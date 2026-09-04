@@ -42,7 +42,7 @@ Nothing here renders HTML. The browser never reaches this service.
 Internal. Registers an account.
 
 - **201 Created** — account created; body carries `{ id }`
-- **400 Bad Request** — malformed body, or a password shorter than twelve characters
+- **400 Bad Request** — malformed body, or a password shorter than eight characters
 - **401 Unauthorized** — internal key missing or wrong
 - **409 Conflict** — the address is already registered
 

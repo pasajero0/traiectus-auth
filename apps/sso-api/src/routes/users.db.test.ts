@@ -60,8 +60,8 @@ describe('POST /v1/users', () => {
     expect((await register(email.toUpperCase())).statusCode).toBe(409)
   })
 
-  it('refuses a password shorter than twelve characters', async () => {
-    const response = await register(`short-${randomBytes(4).toString('hex')}@example.com`, 'eleven-char')
+  it('refuses a password shorter than eight characters', async () => {
+    const response = await register(`short-${randomBytes(4).toString('hex')}@example.com`, 'seven-c')
 
     expect(response.statusCode).toBe(400)
   })
