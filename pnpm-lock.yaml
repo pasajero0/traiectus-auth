@@ -266,6 +266,10 @@ importers:
       zod:
         specifier: 4.5.4
         version: 4.5.4
+    devDependencies:
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.26)(tsx@4.23.13)(typescript@7.0.2)
 
   packages/contracts:
     dependencies:

@@ -4,11 +4,21 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./server": "./src/server/index.ts",
-    "./resource": "./src/resource/index.ts",
-    "./react": "./src/react/index.ts"
+    "./server": {
+      "types": "./src/server/index.ts",
+      "default": "./dist/server.js"
+    },
+    "./resource": {
+      "types": "./src/resource/index.ts",
+      "default": "./dist/resource.js"
+    },
+    "./react": {
+      "types": "./src/react/index.ts",
+      "default": "./dist/react.js"
+    }
   },
   "scripts": {
+    "build": "tsup",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
@@ -17,5 +27,8 @@
     "@traiectus/contracts": "workspace:*",
     "jose": "6.2.10",
     "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "tsup": "8.5.1"
   }
 }
