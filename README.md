@@ -79,14 +79,20 @@ docker run -d --name traiectus-pg \
   -p 5432:5432 postgres:16
 ```
 
-Then copy each `.env.example` to `.env` (services) or `.env.local` (Next.js apps),
-fill in what it asks for, and:
+Then:
 
 ```bash
 pnpm install
-pnpm --filter @traiectus/sso-api db:migrate
+pnpm setup:local                              # writes six .env / .env.local files
+pnpm --filter @traiectus/sso-api db:migrate   # reads DATABASE_URL from your shell
 pnpm dev
 ```
+
+`setup:local` fills in what the `.env.example` files leave blank: one signing key pair
+split between `sso-api` and the product APIs, one internal key shared by `sso-api` and
+`sso-web`, and a secret per client that matches on both sides. Everything it writes is
+gitignored and throwaway — `pnpm setup:local --force` regenerates the whole set. It refuses
+to fill in half a set, because halves that disagree are worse than none.
 
 | Service | URL |
 |---|---|

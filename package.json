@@ -15,6 +15,7 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "guards": "node scripts/check-boundaries.mjs",
+    "setup:local": "node scripts/setup-local-env.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify": "pnpm guards && pnpm lint && pnpm typecheck && pnpm test",
