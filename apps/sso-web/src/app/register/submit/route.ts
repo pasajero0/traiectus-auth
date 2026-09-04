@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { callerAddress } from '@/server/caller'
 import { env } from '@/server/env'
 import { SSO_COOKIE_NAME, sessionCookieOptions } from '@/server/session'
 import { openSession, registerUser } from '@/server/sso-api'
@@ -32,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
     // page's own JS and post the form directly.
     if (password !== confirmPassword) return rejected(origin, 'mismatch', email)
 
-    const result = await registerUser(email, password)
+    const result = await registerUser(email, password, callerAddress(request))
     if (result.outcome === 'email_taken') return rejected(origin, 'email_taken', email)
 
     const { token, expiresAt } = await openSession(result.userId)

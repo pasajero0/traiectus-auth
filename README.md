@@ -136,6 +136,12 @@ two-factor authentication, social login — at the identity service, so the prod
 exactly one issuer ([ADR-0017](docs/decisions/0017-the-authorization-response-names-its-issuer.md)) —
 password reset, email verification, roles and
 permissions, a shared design layer in `packages/ui` (Tailwind and shadcn/ui, copied in
-rather than depended on), a React Native client on the same identity service, and
-forwarding the real client IP from `sso-web` to `sso-api` so rate limiting can key on the
-caller instead of one bucket shared by every request the identity service receives.
+rather than depended on), a React Native client on the same identity service, and a
+list of the sessions an account currently holds — each with where it was last used from,
+and a way to end all of them at once. A session here is held by whoever presents its
+cookie, bound to no address or device on purpose: an address changes several times a day
+for an ordinary person and barely inconveniences a thief, so a stolen refresh token is
+answered by rotation and reuse detection ([ADR-0009](docs/decisions/0009-concurrent-refresh.md))
+rather than by guessing from where a request arrived. Binding a session to a key it must
+prove it holds, rather than to a place, is the real answer, and it is a feature rather than
+a line of code.

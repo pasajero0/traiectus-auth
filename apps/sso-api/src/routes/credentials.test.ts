@@ -91,18 +91,23 @@ describe('POST /v1/credentials/verify', () => {
 })
 
 /**
- * The limiter sits ahead of the auth guard (`onRequest`, before the internal-key
- * `preHandler`), so a request that will fail for its own reason still spends its share of
- * the bucket — proof the CPU cap holds regardless of who is asking or whether they are
- * right to ask.
+ * Two counters guard this route, and they are deliberately different in kind. The address
+ * one below is the coarse net; the counter that matters — failures against one account,
+ * whatever address they arrive from — needs a real database to reach a failed check, so it
+ * lives in `credentials.db.test.ts`.
+ *
+ * The address limiter sits ahead of the auth guard (`onRequest`, before the internal-key
+ * `preHandler`), so a request that will fail for its own reason still spends its share.
  */
-describe('the rate limit on /v1/credentials/verify', () => {
+describe('the address limit on /v1/credentials/verify', () => {
+  const SPEND = 30
+
   it('answers 429 once the bucket for this route is spent, and no other route shares it', async () => {
     const app = await assemble()
     const hit = () => app.inject({ method: 'POST', url: '/v1/credentials/verify' })
 
     let last: Awaited<ReturnType<typeof hit>> | undefined
-    for (let i = 0; i < 10; i += 1) last = await hit()
+    for (let i = 0; i < SPEND; i += 1) last = await hit()
     expect(last?.statusCode).not.toBe(429)
 
     expect((await hit()).statusCode).toBe(429)
@@ -111,17 +116,41 @@ describe('the rate limit on /v1/credentials/verify', () => {
     expect(other.statusCode).not.toBe(429)
   })
 
-  /** ADR-0021: a fixed key, not `request.ip` — two addresses must share one bucket. */
-  it('is one bucket for the whole service, not one per address', async () => {
+  /**
+   * ADR-0023, superseding ADR-0021's single bucket: sso-web forwards which browser is
+   * asking, so one address flooding this route no longer spends everyone else's budget.
+   */
+  it('gives each forwarded browser its own bucket', async () => {
     const app = await assemble()
-    const hit = (remoteAddress: string) =>
-      app.inject({ method: 'POST', url: '/v1/credentials/verify', remoteAddress })
+    const hit = (address: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/v1/credentials/verify',
+        headers: { ...withKey, 'x-traiectus-client-ip': address },
+        payload: { email: 'someone@example.com', password: 'x' },
+      })
 
-    for (let i = 0; i < 5; i += 1) await hit('10.0.0.1')
-    for (let i = 0; i < 5; i += 1) await hit('10.0.0.2')
+    for (let i = 0; i < SPEND; i += 1) await hit('203.0.113.1')
 
-    expect((await hit('10.0.0.1')).statusCode).toBe(429)
-    expect((await hit('10.0.0.3')).statusCode).toBe(429)
+    expect((await hit('203.0.113.1')).statusCode).toBe(429)
+    expect((await hit('203.0.113.2')).statusCode).not.toBe(429)
+  })
+
+  /** Forgeable by anyone, so it counts for nothing without the key that vouches for it. */
+  it('ignores a forwarded address from a caller that has no internal key', async () => {
+    const app = await assemble()
+    const hit = (address: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/v1/credentials/verify',
+        headers: { 'x-traiectus-client-ip': address },
+        remoteAddress: '10.0.0.9',
+      })
+
+    // Many different claimed addresses, one real connection: the connection is what counts.
+    for (let i = 0; i < SPEND; i += 1) await hit(`203.0.113.${i}`)
+
+    expect((await hit('203.0.113.200')).statusCode).toBe(429)
   })
 })
 

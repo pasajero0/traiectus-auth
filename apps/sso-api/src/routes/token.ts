@@ -1,4 +1,5 @@
 import { tokenRequestSchema } from '@traiectus/contracts'
+import type { FastifyRequest } from 'fastify'
 
 import type { Database } from '../db/client'
 import { requireIssuer, requireSigningKey, signAccessToken } from '../domain/access-token'
@@ -11,6 +12,35 @@ import { clientRouter } from '../routing'
 /** RFC 6749's error codes, not ours: a stranger's client reads the RFC, not this file. */
 const invalidGrant = { error: 'invalid_grant' } as const
 const invalidRequest = { error: 'invalid_request' } as const
+
+/**
+ * Keyed by the id the caller claims, not the browser's address: this route is reached by a
+ * product's own server, so every request from one product arrives from the same few
+ * addresses and an address key would put all of its users in one bucket.
+ *
+ * The claim is unverified when the key is computed — `keyGenerator` runs on `onRequest`,
+ * before the router authenticates — and that is sound here rather than sloppy: a caller
+ * without the right secret never reaches anything expensive, only a lookup in configured
+ * clients and one constant-time comparison. A real client, meanwhile, holds exactly one id
+ * and cannot climb out of its own bucket.
+ */
+const TOKEN_RATE_LIMIT = {
+  max: 60,
+  timeWindow: '1 minute',
+  keyGenerator: (request: FastifyRequest) => claimedClientId(request) ?? request.ip,
+}
+
+/** The id half of HTTP Basic, unverified. See the note above for why that is enough. */
+function claimedClientId(request: FastifyRequest): string | null {
+  const header = request.headers.authorization
+  if (!header?.startsWith('Basic ')) return null
+
+  const decoded = Buffer.from(header.slice('Basic '.length), 'base64').toString('utf8')
+  const separator = decoded.indexOf(':')
+  const id = separator < 0 ? decoded : decoded.slice(0, separator)
+
+  return id.length > 0 && id.length <= 64 ? id : null
+}
 
 /**
  * The exchange, and the only route a client's server calls. The body is the form encoding
@@ -101,5 +131,5 @@ export function tokenRoutes(env: Env, db: Database) {
       request.log.error({ err: error }, 'failed to answer the token endpoint')
       return reply.code(500).send({ error: 'internal_error' })
     }
-  }).plugin
+  }, { config: { rateLimit: TOKEN_RATE_LIMIT } }).plugin
 }

@@ -1,6 +1,6 @@
 # ADR-0021: The credentials rate limit shares one bucket
 
-**Status:** accepted
+**Status:** superseded by [ADR-0023](0023-the-caller-is-forwarded-across-the-internal-boundary.md)
 **Date:** 2026-09-03
 
 ## Context

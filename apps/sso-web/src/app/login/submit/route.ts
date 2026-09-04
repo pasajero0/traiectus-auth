@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { callerAddress } from '@/server/caller'
 import { env } from '@/server/env'
 import { resumeTarget } from '@/server/resume'
 import { SSO_COOKIE_NAME, sessionCookieOptions } from '@/server/session'
@@ -28,7 +29,7 @@ export async function POST(request: Request): Promise<Response> {
 
     if (typeof email !== 'string' || typeof password !== 'string') return rejected(origin, resume)
 
-    const checked = await verifyCredentials(email, password)
+    const checked = await verifyCredentials(email, password, callerAddress(request))
     if (!checked.verified) return rejected(origin, resume)
 
     const { token, expiresAt } = await openSession(checked.userId)

@@ -6,7 +6,7 @@ import type { Database } from './db/client'
 import type { Env } from './env'
 import { authorizationCodeRoutes } from './routes/authorization-codes'
 import { clientRoutes } from './routes/clients'
-import { credentialRoutes } from './routes/credentials'
+import { credentialRoutes, SIGN_IN_FAILURE_LIMIT } from './routes/credentials'
 import { healthRoutes } from './routes/health'
 import { sessionRoutes } from './routes/sessions'
 import { tokenRoutes } from './routes/token'
@@ -47,9 +47,23 @@ export async function buildServer(env: Env, db: Database): Promise<FastifyInstan
   // about it stays unlimited rather than inheriting a default meant for one endpoint.
   await app.register(rateLimit, { global: false })
 
+  // The per-caller limits below bound one visitor; this bounds the service. argon2id is
+  // the only expensive thing sso-api does, and an attacker who rotates addresses walks
+  // straight through a per-address cap — so the two routes that hash share one budget,
+  // keyed by nothing at all. ADR-0023.
+  const hashBudget = app.createRateLimit({
+    max: 60,
+    timeWindow: '1 minute',
+    keyGenerator: () => 'argon2id',
+  })
+
+  // The counter NIST SP 800-63B asks for: failures against one account, whatever address
+  // they arrive from. Its shape belongs to the route that understands the body it reads.
+  const signInFailures = app.createRateLimit(SIGN_IN_FAILURE_LIMIT)
+
   await app.register(healthRoutes(env))
-  await app.register(userRoutes(env, db))
-  await app.register(credentialRoutes(env, db))
+  await app.register(userRoutes(env, db, hashBudget))
+  await app.register(credentialRoutes(env, db, hashBudget, signInFailures))
   await app.register(sessionRoutes(env, db))
   await app.register(authorizationCodeRoutes(env, db))
   await app.register(clientRoutes(env))

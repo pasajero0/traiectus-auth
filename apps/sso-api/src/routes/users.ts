@@ -1,10 +1,27 @@
 import { registerRequestSchema } from '@traiectus/contracts'
+import type { FastifyRequest } from 'fastify'
 
+import { callerAddress, wentOver, type HashBudget } from '../caller'
 import type { Database } from '../db/client'
 import { users } from '../db/schema'
 import { hashPassword } from '../domain/password'
 import type { Env } from '../env'
 import { internalRouter } from '../routing'
+import { tooMany } from '../too-many'
+
+/**
+ * There is no account yet, so the account-keyed counter that guards signing in has nothing
+ * to key on here: the address is the only axis, plus the service-wide hashing budget below.
+ * Thirty an hour is generous for the many people who share one address behind an office or
+ * a mobile carrier, and still slow for a script — which matters because this route admits
+ * a conflict by design (ADR-0022), so it is also what stands between one address lookup
+ * and a list of them.
+ */
+const REGISTER_RATE_LIMIT = (env: Env) => ({
+  max: 30,
+  timeWindow: '1 hour',
+  keyGenerator: (request: FastifyRequest) => callerAddress(env, request),
+})
 
 /** Postgres raises this when a unique constraint is violated. */
 const UNIQUE_VIOLATION = '23505'
@@ -38,12 +55,17 @@ function driverError(error: unknown): Record<string, unknown> | null {
  * lands however the message is worded. Signing in is the path that hides it, in both
  * message and hash timing.
  */
-export function userRoutes(env: Env, db: Database) {
+export function userRoutes(env: Env, db: Database, hashBudget: HashBudget) {
   return internalRouter(env).post('/v1/users', async (request, reply) => {
     const parsed = registerRequestSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.code(400).send({ error: 'invalid_request' })
     }
+
+    // The whole service's hashing budget, which an attacker cannot escape by asking from
+    // somewhere else. ADR-0023.
+    const budget = await hashBudget(request)
+    if (wentOver(budget)) return tooMany(reply, budget)
 
     // Zod has already trimmed and lower-cased it; the database checks the same thing
     // again, because a rule only the application enforces is one refactor from gone.
@@ -75,5 +97,5 @@ export function userRoutes(env: Env, db: Database) {
       request.log.error({ err: error }, 'failed to create user')
       return reply.code(500).send({ error: 'internal_error' })
     }
-  }).plugin
+  }, { config: { rateLimit: REGISTER_RATE_LIMIT(env) } }).plugin
 }

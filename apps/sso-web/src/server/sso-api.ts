@@ -15,7 +15,12 @@ import { env } from './env'
  * The only reader of the internal key, and the only caller of sso-api. Answers are parsed
  * rather than trusted: a shape that changed across the network should fail here.
  */
-async function call(method: string, path: string, body?: unknown): Promise<unknown> {
+async function call(
+  method: string,
+  path: string,
+  body?: unknown,
+  callerIp?: string | null,
+): Promise<unknown> {
   const { SSO_API_URL, INTERNAL_API_KEY } = env()
 
   const response = await fetch(`${SSO_API_URL}${path}`, {
@@ -23,6 +28,10 @@ async function call(method: string, path: string, body?: unknown): Promise<unkno
     headers: {
       'content-type': 'application/json',
       'x-traiectus-internal-key': INTERNAL_API_KEY,
+      // Whose request this is on behalf of, so sso-api can count by browser rather than by
+      // this service's own address — ADR-0023. Trusted there only because it arrives with
+      // the internal key above.
+      ...(callerIp ? { 'x-traiectus-client-ip': callerIp } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: 'no-store',
@@ -34,9 +43,13 @@ async function call(method: string, path: string, body?: unknown): Promise<unkno
   return response.status === 204 ? null : await response.json()
 }
 
-export async function verifyCredentials(email: string, password: string) {
+export async function verifyCredentials(
+  email: string,
+  password: string,
+  callerIp?: string | null,
+) {
   return verifyCredentialsResponseSchema.parse(
-    await call('POST', '/v1/credentials/verify', { email, password }),
+    await call('POST', '/v1/credentials/verify', { email, password }, callerIp),
   )
 }
 
@@ -49,6 +62,7 @@ export async function verifyCredentials(email: string, password: string) {
 export async function registerUser(
   email: string,
   password: string,
+  callerIp?: string | null,
 ): Promise<{ outcome: 'created'; userId: string } | { outcome: 'email_taken' }> {
   const { SSO_API_URL, INTERNAL_API_KEY } = env()
 
@@ -57,6 +71,7 @@ export async function registerUser(
     headers: {
       'content-type': 'application/json',
       'x-traiectus-internal-key': INTERNAL_API_KEY,
+      ...(callerIp ? { 'x-traiectus-client-ip': callerIp } : {}),
     },
     body: JSON.stringify({ email, password }),
     cache: 'no-store',

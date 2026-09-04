@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto'
 import type {
   FastifyInstance,
   FastifyPluginAsync,
+  FastifyRequest,
   preHandlerAsyncHookHandler,
   RouteHandlerMethod,
 } from 'fastify'
@@ -74,19 +75,24 @@ const unauthorized = { error: 'unauthorized' } as const
  * returns as soon as two bytes differ, which tells a patient caller how much of a
  * guess was right. A missing key and a wrong one are answered identically.
  */
-function requireInternalKey(env: Env): preHandlerAsyncHookHandler {
+/**
+ * Exported because a rate limit has to answer the same question before this guard runs —
+ * `keyGenerator` fires on `onRequest`, ahead of every `preHandler` — and a rule written
+ * twice is a rule that will one day disagree with itself. ADR-0023.
+ */
+export function presentsInternalKey(env: Env, request: FastifyRequest): boolean {
   const expected = Buffer.from(env.INTERNAL_API_KEY, 'utf8')
+  const presented = request.headers['x-traiectus-internal-key']
+  const given = typeof presented === 'string' ? Buffer.from(presented, 'utf8') : null
 
+  // timingSafeEqual throws on a length mismatch, so length is checked first.
+  // The length of a rejected key is not a secret worth protecting.
+  return given !== null && given.length === expected.length && timingSafeEqual(given, expected)
+}
+
+function requireInternalKey(env: Env): preHandlerAsyncHookHandler {
   return async function verify(request, reply): Promise<void> {
-    const presented = request.headers['x-traiectus-internal-key']
-    const given = typeof presented === 'string' ? Buffer.from(presented, 'utf8') : null
-
-    // timingSafeEqual throws on a length mismatch, so length is checked first.
-    // The length of a rejected key is not a secret worth protecting.
-    const ok =
-      given !== null && given.length === expected.length && timingSafeEqual(given, expected)
-
-    if (!ok) await reply.code(401).send(unauthorized)
+    if (!presentsInternalKey(env, request)) await reply.code(401).send(unauthorized)
   }
 }
 
