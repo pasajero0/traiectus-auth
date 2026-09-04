@@ -38,6 +38,15 @@ services:
         sync: false
       - key: ACCESS_TOKEN_PRIVATE_KEY
         sync: false
+      # Optional in the schema so the service still boots without them, which is exactly
+      # why they are declared here: absent, it starts and then fails at the first token
+      # issued and on every /v1/clients. Render prompts for each on a blueprint deploy.
+      - key: ISSUER
+        sync: false
+      - key: REFRESH_SUCCESSOR_ENCRYPTION_KEY
+        sync: false
+      - key: CLIENTS
+        sync: false
 
 databases:
   - name: traiectus-db

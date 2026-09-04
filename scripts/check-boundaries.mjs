@@ -199,6 +199,14 @@ const REQUIRED_RULES = [
  */
 const PLATFORM_INJECTED_ENV_VARS = new Set(['RENDER_GIT_COMMIT'])
 
+const RENDER_BLUEPRINT = 'render.yaml'
+/** Render sets PORT itself, and the schema defaults HOST; declaring them would be noise. */
+const RENDER_PROVIDED_ENV_VARS = new Set(['PORT', 'HOST'])
+
+const RENDER_BLUEPRINT_ID = 'env/blueprint-declares-what-the-service-reads'
+const RENDER_BLUEPRINT_MESSAGE =
+  'Every variable sso-api reads has to be named in render.yaml. Most are optional in the schema so the service boots without them and fails later — at the first token issued, or on every /v1/clients — which is the failure a blueprint exists to prevent. This is the file someone leans on when rebuilding the service from nothing.'
+
 const ENV_SCHEMA_ID = 'env/schema-and-example-agree'
 const ENV_SCHEMA_MESSAGE =
   'A variable the schema reads and a variable the example documents must be the same set. One the schema requires and the example never mentions is a deploy with no way to know it exists; one the example lists and the schema never reads is a stale line nobody will notice going wrong.'
@@ -329,7 +337,34 @@ for (const absolute of walk(ROOT)) {
   }
 }
 
+/**
+ * The third link in a chain the other two already hold: the schema agrees with
+ * `.env.example` (above), and the blueprint agrees with `.env.example` (here). Checked
+ * against the example rather than the schema so both guards read the same source of truth.
+ */
+function checkRenderBlueprintDeclaresEnv() {
+  const blueprintPath = RENDER_BLUEPRINT
+  const examplePath = join('apps', 'sso-api', ENV_EXAMPLE)
+  if (!existsSync(join(ROOT, blueprintPath)) || !existsSync(join(ROOT, examplePath))) return
+
+  const blueprint = readFileSync(join(ROOT, blueprintPath), 'utf8')
+  const declared = new Set(
+    [...blueprint.matchAll(/^\s*-\s*key:\s*([A-Z0-9_]+)\s*$/gm)].map((match) => match[1]),
+  )
+
+  for (const key of envExampleKeys(readFileSync(join(ROOT, examplePath), 'utf8'))) {
+    if (RENDER_PROVIDED_ENV_VARS.has(key) || declared.has(key)) continue
+    violations.push({
+      file: blueprintPath,
+      line: 1,
+      rule: { id: RENDER_BLUEPRINT_ID, message: RENDER_BLUEPRINT_MESSAGE },
+      detail: `${key} is documented in ${posix(examplePath)}; this blueprint never declares it`,
+    })
+  }
+}
+
 checkEnvSchemasMatchExamples()
+checkRenderBlueprintDeclaresEnv()
 
 if (violations.length === 0) {
   console.log('guards: ok')
