@@ -26,6 +26,38 @@ afterAll(async () => {
   await close()
 })
 
+describe('POST /v1/sessions/verify', () => {
+  it('answers the session owner\'s email alongside the userId', async () => {
+    const email = `t-${randomBytes(6).toString('hex')}@example.com`
+    const [user] = await db.insert(users).values({ email, passwordHash: 'x' }).returning({
+      id: users.id,
+    })
+    const session = await openSession(db, user!.id)
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/sessions/verify',
+      headers: withKey,
+      payload: { token: session.token },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({ verified: true, userId: user!.id, email })
+  })
+
+  it('says only verified: false for a token that names no live session', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/sessions/verify',
+      headers: withKey,
+      payload: { token: 'trs_' + 'a'.repeat(43) },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual({ verified: false })
+  })
+})
+
 /** Single logout, exercised through the endpoint sso-web's own /logout calls. */
 describe('DELETE /v1/sessions', () => {
   it('cascades into every refresh family the session owner holds', async () => {

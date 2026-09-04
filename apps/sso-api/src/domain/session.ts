@@ -1,7 +1,7 @@
 import { and, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
 
 import type { Database, Tx } from '../db/client'
-import { ssoSessions } from '../db/schema'
+import { ssoSessions, users } from '../db/schema'
 import { SSO_SESSION_HARD, SSO_SESSION_IDLE } from './lifetimes'
 import { hashToken, isTokenOfKind, mintToken } from './token'
 
@@ -43,7 +43,7 @@ export async function openSession(
 export async function verifySession(
   db: Database,
   token: string,
-): Promise<{ id: string; userId: string; expiresAt: Date } | null> {
+): Promise<{ id: string; userId: string; email: string; expiresAt: Date } | null> {
   if (!isTokenOfKind(token, 'session')) return null
 
   const [session] = await db
@@ -63,7 +63,16 @@ export async function verifySession(
       expiresAt: ssoSessions.expiresAt,
     })
 
-  return session ?? null
+  if (!session) return null
+
+  // A read after the atomic check above, not part of it: display data, not a decision
+  // the guard needs to make race-free.
+  const [user] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, session.userId))
+
+  return user ? { ...session, email: user.email } : null
 }
 
 /**

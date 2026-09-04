@@ -39,6 +39,7 @@ export function sessionRoutes(env: Env, db: Database) {
           ? reply.code(200).send({
               verified: true,
               userId: session.userId,
+              email: session.email,
               expiresAt: session.expiresAt.toISOString(),
             })
           : reply.code(200).send({ verified: false })

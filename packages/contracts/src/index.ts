@@ -79,6 +79,7 @@ export const verifySessionResponseSchema = z.discriminatedUnion('verified', [
   z.object({
     verified: z.literal(true),
     userId: z.string().uuid(),
+    email: emailSchema,
     expiresAt: z.string().datetime(),
   }),
   z.object({ verified: z.literal(false) }),
