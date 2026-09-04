@@ -35,6 +35,10 @@ export default async function LoginPage({
 
         <button type="submit">Sign in</button>
       </form>
+
+      <p>
+        <a href="/register">Don&rsquo;t have an account? Sign up</a>
+      </p>
     </main>
   )
 }

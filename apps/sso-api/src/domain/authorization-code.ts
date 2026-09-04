@@ -50,10 +50,8 @@ const sessionIsLive = sql`not exists (
 )`
 
 /**
- * Single use, by the statement that checks it — ADR-0009 ①, the same shape as rotation.
- * Bindings are compared after the code is spent: leaving it live on a wrong verifier would
- * let whoever holds it keep guessing. The session check closes ADR-0018's Consequences: a
- * code is bound to the session that produced it, so logging out invalidates it too.
+ * Single use, by the statement that checks it — ADR-0009 ①. Bindings are compared after the
+ * code is spent: leaving it live on a wrong verifier lets whoever holds it keep guessing.
  */
 export async function redeemCode(
   db: Database,
@@ -109,10 +107,8 @@ export async function redeemCode(
 }
 
 /**
- * ADR-0015/ADR-0018: "on the same terms as everything else with a lifetime." A consumed
- * code — redeemed, or spent on a failed check, ADR-0009 ① — is done at `consumed_at`, which
- * is why that clause deletes it sooner than an unconsumed code's own 60-second `expires_at`
- * plus the week.
+ * ADR-0015. A consumed code is finished at `consumed_at`, so it is collected from there
+ * rather than from an expiry it never reached.
  */
 export async function sweepExpiredCodes(db: Database): Promise<void> {
   await db

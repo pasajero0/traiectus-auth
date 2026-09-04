@@ -19,7 +19,7 @@ export default async function Home() {
   return (
     <main>
       <p className="eyebrow">traiectus &middot; identity</p>
-      <h1>Signed in</h1>
+      <h1>Signed in as {session.email}</h1>
       <p className="lede">Connected products, one session behind all of them.</p>
 
       <ul>

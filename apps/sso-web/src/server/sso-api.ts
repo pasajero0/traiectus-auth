@@ -4,6 +4,7 @@ import {
   clientsResponseSchema,
   createSessionResponseSchema,
   issueCodeResponseSchema,
+  registerResponseSchema,
   verifyCredentialsResponseSchema,
   verifySessionResponseSchema,
 } from '@traiectus/contracts'
@@ -37,6 +38,35 @@ export async function verifyCredentials(email: string, password: string) {
   return verifyCredentialsResponseSchema.parse(
     await call('POST', '/v1/credentials/verify', { email, password }),
   )
+}
+
+/**
+ * Not built on `call()`: `/v1/users` answers a truthful `409` for a taken address (the
+ * backend's own design — an internal API lying to its only caller buys nothing), and that
+ * has to reach the caller as a real outcome, not the generic "sso-api answered a bad
+ * status" fault `call()` throws for everything else.
+ */
+export async function registerUser(
+  email: string,
+  password: string,
+): Promise<{ outcome: 'created'; userId: string } | { outcome: 'email_taken' }> {
+  const { SSO_API_URL, INTERNAL_API_KEY } = env()
+
+  const response = await fetch(`${SSO_API_URL}/v1/users`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-traiectus-internal-key': INTERNAL_API_KEY,
+    },
+    body: JSON.stringify({ email, password }),
+    cache: 'no-store',
+  })
+
+  if (response.status === 409) return { outcome: 'email_taken' }
+  if (!response.ok) throw new Error(`sso-api answered ${response.status} to POST /v1/users`)
+
+  const { id } = registerResponseSchema.parse(await response.json())
+  return { outcome: 'created', userId: id }
 }
 
 export async function openSession(userId: string) {
