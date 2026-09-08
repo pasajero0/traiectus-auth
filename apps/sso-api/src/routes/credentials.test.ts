@@ -122,12 +122,16 @@ describe('the address limit on /v1/credentials/verify', () => {
    */
   it('gives each forwarded browser its own bucket', async () => {
     const app = await assemble()
+    // Deliberately missing the password: the schema refuses it before the handler can
+    // reach a database this job does not have, while the limiter — which counts on
+    // `onRequest` — has already spent the bucket. A "realistic" payload here passes
+    // locally, where Postgres happens to listen, and hangs in CI, where it does not.
     const hit = (address: string) =>
       app.inject({
         method: 'POST',
         url: '/v1/credentials/verify',
         headers: { ...withKey, 'x-traiectus-client-ip': address },
-        payload: { email: 'someone@example.com', password: 'x' },
+        payload: { email: 'someone@example.com' },
       })
 
     for (let i = 0; i < SPEND; i += 1) await hit('203.0.113.1')
